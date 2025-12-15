@@ -1,0 +1,4500 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ボスタイピング（JRPG UI）</title>
+  <style>
+    :root{
+      --bg:#0a0c13;
+      --ink:#f3f6ff;
+      --muted:#b8c3e6;
+      --gold:#d9c27a;
+      --wordH: 30;
+    }
+
+    *{ box-sizing:border-box; }
+
+    .muted{ color: var(--muted); }
+    body{
+      margin:0;
+      background: radial-gradient(900px 520px at 50% 0%, rgba(100,120,255,.16), transparent 60%),
+                  radial-gradient(1000px 600px at 10% 100%, rgba(255,140,100,.10), transparent 55%),
+                  var(--bg);
+      color:var(--ink);
+      font-family: ui-monospace, "MS Gothic", "Osaka", "Noto Sans JP", monospace;
+
+      display:flex;
+      justify-content:center;
+      align-items:center;
+
+      min-height:100dvh;
+      padding:
+        calc(16px + env(safe-area-inset-top))
+        16px
+        calc(16px + env(safe-area-inset-bottom))
+        16px;
+
+      overflow-x:hidden;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    .pixel{
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .frame{
+      width:min(1024px, 100%);
+      border:6px solid var(--gold);
+      box-shadow: 0 0 0 2px rgba(0,0,0,.45), inset 0 0 0 2px rgba(0,0,0,.45);
+      background: rgba(0,0,0,.20);
+      touch-action: manipulation;
+    }
+
+    .battlefield{
+      position:relative;
+      height: min(520px, 56vh);
+      border-bottom:6px solid var(--gold);
+      overflow:hidden;
+      background: linear-gradient(180deg, rgba(40,45,70,.55), rgba(10,12,19,.75));
+    }
+
+    .bgImg{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit:cover;
+      opacity: 0.85;
+      display:none;
+    }
+    .bgFallback{
+      position:absolute; inset:0;
+      background:
+        radial-gradient(240px 180px at 20% 20%, rgba(255,210,120,.18), transparent 60%),
+        radial-gradient(220px 180px at 70% 30%, rgba(120,160,255,.18), transparent 60%),
+        linear-gradient(180deg, rgba(30,35,60,.55), rgba(10,12,19,.75));
+    }
+
+    /* Word lane */
+    .wordLane{
+      position:absolute;
+      left: 26px;
+      top: 22px;
+      bottom: 84px; /* leave space for input bar under the lane */
+      width: min(360px, 46%);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      background: rgba(10,10,18,.35);
+      overflow:hidden;
+    }
+
+    .laneLabel{
+      position:absolute;
+      left: 36px;
+      top: 30px;
+      z-index:3;
+      background: rgba(0,0,0,.55);
+      border:2px solid rgba(255,255,255,.12);
+      padding:6px 10px;
+      font-size:12px;
+      color: var(--muted);
+    }
+
+    .overflowBadge{
+      position:absolute;
+      right: 18px;
+      top: 18px;
+      z-index:5;
+      background: rgba(255,220,120,.95);
+      color:#140e00;
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.12);
+      padding:6px 10px;
+      font-weight:900;
+      display:none;
+    }
+    .overflowBadge.show{ display:block; }
+
+    /* Input bar directly under falling words */
+    .inputBar{
+      position:absolute;
+      left: 26px;
+      bottom: 22px;
+      width: min(360px, 46%);
+      height: 52px;
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), 0 10px 18px rgba(0,0,0,.35);
+      background: rgba(0,0,0,.32);
+      z-index:6;
+      display:flex;
+      align-items:center;
+      padding: 8px 10px;
+      gap:10px;
+    }
+    .promptChar{
+      color: var(--gold);
+      font-weight:900;
+      font-size:16px;
+      flex: 0 0 auto;
+    }
+    .inputBar form{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      width:100%;
+      height:100%;
+      margin:0;
+    }
+    .inputBar input[type="text"]{
+      width:100%;
+      background: transparent;
+      border:none;
+      outline:none;
+      color: var(--ink);
+      font-size:16px;
+      font-family: inherit;
+      height: 36px;
+      padding: 4px 6px;
+    }
+    .inputBar input[type="text"]::placeholder{ color: rgba(184,195,230,.65); }
+
+    .word{
+      position:absolute;
+      left:50%;
+      top:0;
+      transform: translate3d(-50%, var(--y, 0px), 0);
+      will-change: transform;
+      width: calc(100% - 22px);
+      height: calc(var(--wordH) * 1px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:0 10px;
+
+      background: rgba(26,22,48,.85);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), 0 8px 12px rgba(0,0,0,.35);
+    }
+    .word .prompt{
+      font-weight:900;
+      letter-spacing:.2px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .word .tag{
+      color: var(--muted);
+      font-size:12px;
+      flex:0 0 auto;
+      white-space:nowrap;
+    }
+    .word.hint .tag{
+      color: var(--gold);
+      font-weight:900;
+    }
+    .word.landed{
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.06);
+      background: rgba(18,16,34,.85);
+    }
+    .word.obscured .answer{
+      color: rgba(243,246,255,.55);
+      letter-spacing: 0px;
+      font-size: 12px;
+      padding-left: 2px;
+}
+
+
+    
+    .word.ex2Target{
+      border-color: rgba(255, 204, 0, .85);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.10), 0 0 0 2px rgba(255, 204, 0, .25), 0 8px 12px rgba(0,0,0,.35);
+    }
+
+/* Boss area */
+    .bossWrap{
+      position:absolute;
+      right: 70px;
+      top: 44px;
+      bottom: 44px;
+      width: min(360px, 42%);
+      display:grid;
+      place-items:center;
+      pointer-events:none;
+    }
+    .bossInner{
+      position:relative;
+      width:100%;
+      height:100%;
+      display:grid;
+      place-items:center;
+    }
+    .bossImg{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      display:none;
+      filter: drop-shadow(0 10px 0 rgba(0,0,0,.35));
+    }
+    .bossFallback{
+      width:100%;
+      height:100%;
+      display:grid;
+      place-items:center;
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      background: rgba(0,0,0,.22);
+      color: rgba(243,246,255,.85);
+      font-weight:900;
+      text-align:center;
+      padding:12px;
+    }
+
+    .stage5Timer{
+      position:absolute;
+      right: 10px;
+      top: 56px;
+      padding:10px 14px;
+      font-size:16px;
+      font-weight:900;
+      color: var(--gold);
+      background: rgba(0,0,0,.66);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), 0 10px 18px rgba(0,0,0,.35);
+      display:none;
+      z-index:8;
+      letter-spacing:.2px;
+      text-align:center;
+      min-width: 160px;
+    }
+    .stage5Timer.show{ display:block; }
+
+    
+    /* Extra Stage 2: shuffle timer */
+    .ex2Timer{
+      position:absolute;
+      right: 10px;
+      top: 56px;
+      padding:10px 14px;
+      font-size:16px;
+      font-weight:900;
+      color: var(--gold);
+      background: rgba(0,0,0,.66);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), 0 10px 18px rgba(0,0,0,.35);
+      display:none;
+      z-index:8;
+      letter-spacing:.2px;
+      text-align:center;
+      min-width: 160px;
+    }
+    .ex2Timer.show{ display:block; }
+
+
+    /* Extra Stage 4: survive timer (until BGM ends) */
+    .ex4Timer{
+      position:absolute;
+      right: 10px;
+      top: 56px;
+      padding:10px 14px;
+      font-size:16px;
+      font-weight:900;
+      color: var(--gold);
+      background: rgba(0,0,0,.66);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), 0 10px 18px rgba(0,0,0,.35);
+      display:none;
+      z-index:8;
+      letter-spacing:.2px;
+      text-align:center;
+      min-width: 160px;
+    }
+    .ex4Timer.show{ display:block; }
+
+    /* Boss HP "X" overlay (invulnerable boss) */
+    #bossMeter.invuln{ position: relative; }
+    #bossMeter.invuln::after{
+      content:"✕";
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform: translate(-50%, -58%);
+      font-size:28px;
+      font-weight:900;
+      color: rgba(255,90,90,.95);
+      text-shadow: 0 3px 10px rgba(0,0,0,.75);
+      pointer-events:none;
+      line-height:1;
+    }
+
+/* NEW: flashing invulnerable sign under Stage 5 timer */
+    .stage5InvSign{
+      position:absolute;
+      right: 10px;
+      top: 106px; /* sits under the timer */
+      padding:7px 12px;
+      font-size:13px;
+      font-weight:900;
+      color:#140e00;
+      background: rgba(255,220,120,.95);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.12), 0 10px 18px rgba(0,0,0,.35);
+      display:none;
+      z-index:8;
+      letter-spacing:.2px;
+      text-align:center;
+      min-width: 160px;
+      animation: invBlink .75s steps(2, end) infinite;
+    }
+    .stage5InvSign.show{ display:block; }
+    @keyframes invBlink{
+      0%   { filter: brightness(1); transform: translateY(0); opacity: 1; }
+      50%  { filter: brightness(1.25); transform: translateY(-1px); opacity: .65; }
+      100% { filter: brightness(1); transform: translateY(0); opacity: 1; }
+    }
+
+    .bossBubble{
+      position:absolute;
+      left:50%;
+      top: 12px;
+      transform: translateX(-50%);
+      max-width: 92%;
+      padding:8px 10px;
+      font-size:13px;
+      line-height:1.45;
+      color: var(--ink);
+      background: rgba(0,0,0,.66);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), 0 10px 18px rgba(0,0,0,.35);
+      opacity:0;
+      display:none;
+      z-index:9;
+      text-align:center;
+    }
+    .bossBubble.show{
+      display:block;
+      animation: bubbleIn .12s ease-out forwards;
+    }
+    @keyframes bubbleIn{
+      from { opacity:0; transform: translateX(-50%) translateY(-6px); }
+      to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+    .bossBubble:after{
+      content:"";
+      position:absolute;
+      left:50%;
+      bottom:-10px;
+      transform: translateX(-50%);
+      width:0; height:0;
+      border-left:10px solid transparent;
+      border-right:10px solid transparent;
+      border-top:10px solid rgba(0,0,0,.66);
+      filter: drop-shadow(0 2px 0 rgba(0,0,0,.35));
+    }
+
+    .bossBuffBanner{
+      position:absolute;
+      right: 10px;
+      bottom: 10px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:900;
+      color:#140e00;
+      background: rgba(255,220,120,.95);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.12), 0 10px 18px rgba(0,0,0,.35);
+      display:none;
+      z-index:7;
+      letter-spacing:.2px;
+    }
+    .bossBuffBanner.show{
+      display:block;
+      animation: buffPulse .9s ease-in-out infinite;
+    }
+    @keyframes buffPulse{
+      0%,100%{ transform: scale(1); filter: brightness(1); }
+      50%{ transform: scale(1.06); filter: brightness(1.18); }
+    }
+
+    .bossFlash{ animation: bossFlash .14s linear; }
+    @keyframes bossFlash{
+      0%{ filter: brightness(1) contrast(1) drop-shadow(0 10px 0 rgba(0,0,0,.35)); }
+      50%{ filter: brightness(2.4) contrast(1.2) drop-shadow(0 10px 0 rgba(0,0,0,.35)); }
+      100%{ filter: brightness(1) contrast(1) drop-shadow(0 10px 0 rgba(0,0,0,.35)); }
+    }
+
+    .damageFlash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background: rgba(255, 0, 0, .22);
+      opacity:0;
+      z-index:6;
+    }
+    .damageFlash.show{ animation: dmgFlash .22s ease-out; }
+    @keyframes dmgFlash{
+      0%{ opacity:0; }
+      25%{ opacity:1; }
+      100%{ opacity:0; }
+    }
+
+    /* Bottom UI */
+    .uiRow{
+      display:grid;
+      grid-template-columns: 1fr 1.2fr 1.1fr;
+      gap:10px;
+      padding:10px;
+      background: rgba(0,0,0,.22);
+    }
+
+    .panel{
+      background: linear-gradient(180deg, rgba(26,22,48,.92), rgba(18,16,34,.92));
+      border:6px solid var(--gold);
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,.55);
+      padding:10px;
+      min-height: 160px;
+    }
+
+    .panelHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+      padding-bottom:6px;
+      border-bottom:2px solid rgba(255,255,255,.12);
+      color: var(--muted);
+      font-size:12px;
+    }
+    .panelHeader b{ color: var(--ink); }
+
+    .menuList{
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:grid;
+      gap:6px;
+      font-size:16px;
+    }
+    .menuItem{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 6px;
+      border:2px solid transparent;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+    }
+    .menuItem:hover{
+      border-color: rgba(255,255,255,.16);
+      background: rgba(255,255,255,.04);
+    }
+    .arrow{
+      width:18px;
+      color: var(--gold);
+      font-weight:900;
+    }
+
+    .msg{
+      font-size:14px;
+      line-height:1.55;
+      color: var(--ink);
+      min-height: 120px;
+      padding:6px 6px 10px;
+      border:2px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.20);
+      overflow:auto;
+      max-height: 140px;
+    }
+    .msg .muted{ color: var(--muted); }
+
+    .small{
+      margin-top:6px;
+      font-size:12px;
+      color: var(--muted);
+    }
+
+    .statusList{ display:grid; gap:10px; font-size:13px; }
+    .statRow{
+      display:grid;
+      grid-template-columns: auto 1fr;
+      gap:10px;
+      align-items:center;
+    }
+    .statRow .name{
+      width: 90px;
+      color: var(--ink);
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .bars{ display:grid; gap:6px; }
+    .barLine{
+      display:grid;
+      grid-template-columns: 28px 1fr auto;
+      gap:8px;
+      align-items:center;
+      color: var(--muted);
+      font-size:12px;
+    }
+    .meter{
+      height: 12px;
+      border:3px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      background: rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+    .fillHP{
+      height:100%;
+      width:50%;
+      background: linear-gradient(90deg, rgba(214,66,66,1), rgba(255,140,140,1));
+    }
+    .fillBoss{
+      height:100%;
+      width:50%;
+      background: linear-gradient(90deg, rgba(255,110,90,1), rgba(255,190,120,1));
+    }
+    .fillAP{
+      height:100%;
+      width:40%;
+      background: linear-gradient(90deg, rgba(106,70,255,1), rgba(170,140,255,1));
+    }
+
+    .hpPips{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      margin-top:8px;
+      padding-top:8px;
+      border-top:2px solid rgba(255,255,255,.10);
+    }
+    .pip{
+      width:12px;
+      height:12px;
+      border:2px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      background: rgba(255,255,255,.08);
+    }
+    .pip.on{
+      background: linear-gradient(90deg, rgba(49,210,124,1), rgba(120,255,190,1));
+    }
+
+    .bgmRow{
+      margin-top:8px;
+      padding-top:8px;
+      border-top:2px solid rgba(255,255,255,.10);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      color: var(--muted);
+      font-size:12px;
+    }
+    .bgmRow b{ color: var(--ink); }
+    .bgmRow input[type="range"]{
+      width: 140px;
+      accent-color: var(--gold);
+    }
+    .bgmBtn{
+      border:2px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      background: rgba(0,0,0,.22);
+      color: var(--ink);
+      padding:8px 10px;
+      cursor:pointer;
+      font-family: inherit;
+      font-size:12px;
+      font-weight:900;
+      min-height: 40px;
+      touch-action: manipulation;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      place-items:center;
+      z-index:10;
+      background: rgba(0,0,0,.55);
+      cursor:pointer;
+    }
+    .overlay.show{ display:grid; }
+    .overlayBox{
+      width:min(600px, calc(100% - 30px));
+      background: linear-gradient(180deg, rgba(26,22,48,.95), rgba(18,16,34,.95));
+      border:6px solid var(--gold);
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,.55);
+      padding:14px;
+      text-align:left;
+      overflow:hidden;
+    }
+    .overlayBox h2{ margin:0 0 8px; font-size:18px; }
+    .overlayBox p{ margin:0; color: var(--ink); font-size:14px; line-height:1.7; }
+    .overlayHint{ margin-top:10px; color: var(--muted); font-size:12px; }
+    
+    /* DEBUG: compact stage picker */
+    .overlayBox.debugSmall{
+      width:min(360px, calc(100% - 30px));
+      padding:10px;
+    }
+    .overlayBox.debugSmall p,
+    .overlayBox.debugSmall .overlayHint{
+      display:none;
+    }
+    .overlayBox.debugSmall h2{
+      margin:0 0 6px;
+      font-size:16px;
+      letter-spacing:.06em;
+    }
+    .debugGrid{
+      margin-top:6px;
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:8px;
+    }
+    .debugStageBtn{
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+      background: rgba(0,0,0,.22);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      padding:10px 6px;
+      font-weight:900;
+      color: var(--gold);
+      text-align:center;
+      border-radius:10px;
+    }
+    .debugStageBtn:hover{
+      outline:2px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.04);
+    }
+.countdown{ margin-top:10px; font-size:42px; font-weight:900; color: var(--gold); text-align:center; }
+
+    .overlayChoices{
+      display:none;
+      margin-top:10px;
+      display:grid;
+      gap:10px;
+    }
+    .overlayChoices.show{ display:grid; }
+
+    .choiceBtn{
+      cursor:pointer;
+      user-select:none;
+      background: rgba(0,0,0,.22);
+      border:4px solid rgba(0,0,0,.55);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08);
+      padding:12px;
+      touch-action: manipulation;
+    }
+    .choiceBtn:hover{
+      outline:2px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.04);
+    }
+    .choiceBtn .title{
+      font-weight:900;
+      color: var(--gold);
+      margin-bottom:4px;
+    }
+    .choiceBtn .desc{
+      font-size:13px;
+      color: var(--ink);
+      line-height:1.55;
+    }
+    .choiceBtn .note{
+      margin-top:6px;
+      font-size:12px;
+      color: var(--muted);
+    }
+
+    .stageClearSlide{
+      display:inline-block;
+      font-size:26px;
+      letter-spacing:.5px;
+      animation: stageClearSlide .55s cubic-bezier(.18,.9,.22,1) both;
+    }
+    @keyframes stageClearSlide{
+      0%   { transform: translateX(-56px); opacity: 0; }
+      65%  { transform: translateX(8px); opacity: 1; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+
+    @media (max-width: 980px){
+      .uiRow{ grid-template-columns: 1fr; }
+      .panel{ min-height: unset; }
+      .bossWrap{ right: 18px; top: 34px; bottom: 34px; width: 46%; }
+      .wordLane{ width: 52%; }
+      .inputBar{ width: 52%; }
+      .stage5Timer{ top: 52px; }
+      .stage5InvSign{ top: 102px; }
+    }
+  
+    /* EX4 Phase 4 reset scare image overlay (full screen) */
+    .ex4ResetScare{
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+      background: center / cover no-repeat url('ex4_boss_zoom_1440x1080.png');
+      will-change: opacity;
+    }
+
+  
+  .bossHpLine{ position: relative; overflow: hidden; }
+  .ex4EyeBanner{
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 120%;
+    object-fit: contain;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms linear;
+    z-index: 10;
+  }
+
+
+    /* ---- Intro start screen (pre-menu) ---- */
+    .introOverlay{
+      position:fixed;
+      inset:0;
+      background:#000;
+      z-index:1000;
+      display:none;
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action:manipulation;
+    }
+    .introOverlay.show{ display:block; }
+    .introBlackout{
+      position:absolute;
+      inset:0;
+      background:#000;
+    }
+
+    .introBg{
+      position:absolute;
+      inset:0;
+      background:#05040b;
+      background-image: var(--introBg, none);
+      background-size:cover;
+      background-position:center;
+      background-repeat:no-repeat;
+      image-rendering: pixelated;
+      opacity: 1;
+      transition: opacity 160ms linear, filter 120ms linear, transform 120ms linear;
+      will-change: opacity, filter, transform;
+    }
+
+    /* Intro unlocked background glitch reveal */
+    .introBg.introHidden{ opacity: 0; }
+    .introBg.introGlitching{ }
+    .introBg::before,
+    .introBg::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+    }
+    .introBg::before{
+      /* scanlines */
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(255,255,255,.06) 0px,
+        rgba(255,255,255,.06) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      mix-blend-mode: overlay;
+    }
+    .introBg::after{
+      /* RGB split tint */
+      background: linear-gradient(90deg, rgba(255,40,120,.22), transparent 40%, rgba(0,170,255,.22));
+      mix-blend-mode: screen;
+      transform: translateX(var(--gShiftX, 0px));
+    }
+    .introBg.introGlitchPulse{
+      filter: contrast(1.25) saturate(1.35) brightness(1.10);
+      transform: translate(var(--gX, 0px), var(--gY, 0px)) skewX(var(--gSkew, 0deg));
+    }
+    .introBg.introGlitchPulse::before{ opacity: .55; }
+    .introBg.introGlitchPulse::after{ opacity: .70; }
+    .introShade{
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(1200px 700px at 50% 30%, rgba(0,0,0,.12), rgba(0,0,0,.75)),
+        rgba(0,0,0,.25);
+    }
+    .introContent{
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-end;
+      gap:12px;
+      padding:26px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+    }
+    .introBadge{
+      font-weight:900;
+      letter-spacing:.06em;
+      font-size:14px;
+      padding:8px 12px;
+      border:3px solid rgba(255,255,255,.2);
+      background: rgba(0,0,0,.35);
+      text-shadow: 0 2px 0 rgba(0,0,0,.65);
+      border-radius:10px;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+    .introStartBtn{
+      font-family: inherit;
+      font-weight: 1000;
+      letter-spacing: .14em;
+      padding: 12px 20px;
+      border: 5px solid var(--gold);
+      background: rgba(16,14,30,.92);
+      color: var(--ink);
+      border-radius: 14px;
+      box-shadow: 0 10px 0 rgba(0,0,0,.35);
+      min-width: 210px;
+      height: 54px;
+      cursor:pointer;
+      opacity:1;
+      transform: translateY(0);
+      pointer-events:auto;
+      transition: filter .18s ease, opacity .18s ease;
+    }
+    .introStartBtn[disabled]{
+      opacity: .6;
+      cursor: default;
+      filter: grayscale(.25) brightness(.9);
+      box-shadow: 0 8px 0 rgba(0,0,0,.30);
+    }
+    .introNote{
+      font-size:12px;
+      color: var(--muted);
+      text-shadow: 0 2px 0 rgba(0,0,0,.6);
+      opacity: .95;
+    }
+
+</style>
+</head>
+<body>
+  <div class="frame pixel">
+    <div class="battlefield" id="battlefield">
+      <div class="bgFallback" id="bgFallback"></div>
+      <img class="bgImg pixel" id="bgImg" alt="Stage background" />
+
+      <div class="damageFlash" id="damageFlash"></div>
+
+      <div class="laneLabel">Words</div>
+      <div class="wordLane" id="wordLane"></div>
+
+      <!-- Input is directly under the falling words -->
+      <div class="inputBar" id="inputBar">
+        <form id="answerForm" autocomplete="off">
+          <div class="promptChar">&gt;</div>
+          <input
+            id="answerInput"
+            type="text"
+            placeholder="英語を入力… 例: taller / the tallest"
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            inputmode="text"
+            enterkeyhint="done"
+            disabled
+          />
+          <button type="submit" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">OK</button>
+        </form>
+      </div>
+
+      <div class="bossWrap">
+        <div class="bossInner">
+          <div class="bossBubble" id="bossBubble"></div>
+
+          <div class="ex2Timer" id="ex2Timer">変化まで 5秒</div>
+
+          <div class="ex4Timer" id="ex4Timer">残り --:--</div>
+
+          <div class="stage5Timer" id="stage5Timer">残り --:--</div>
+          <!-- NEW: flashing sign under the timer -->
+          <div class="stage5InvSign" id="stage5InvSign">一時的無敵</div>
+
+          <div class="bossBuffBanner" id="stage5InvBanner">一時的無敵</div>
+
+          <img class="bossImg pixel" id="bossImg" alt="Boss sprite" />
+          <div class="bossFallback" id="bossFallback">
+            Stage Boss<br>
+            <span style="color:var(--muted); font-weight:700; font-size:12px;">(stage?_boss.png を置く)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="overflowBadge" id="overflowBadge">OVERFLOW! 1 dmg/sec</div>
+
+      <div class="overlay" id="overlay">
+        <div class="overlayBox" role="dialog" aria-modal="true">
+          <h2 id="overlayTitle">MODE SELECT</h2>
+          <p id="overlayDesc">モードを選んで開始</p>
+
+          <div class="overlayChoices" id="overlayChoices"></div>
+
+          <div class="overlayHint" id="overlayHint">▶ ボタンでモードを選択</div>
+          <div class="countdown" id="countdownText"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="uiRow">
+      <div class="panel">
+        <div class="panelHeader">
+          <span><b id="playerLabel">Player</b></span>
+          <span class="muted">Commands</span>
+        </div>
+        <ul class="menuList">
+          <li class="menuItem" id="startCmd"><span class="arrow">▶</span><span>Start（モード選択）</span></li>
+          <li class="menuItem" id="resetCmd"><span class="arrow">▶</span><span>Reset</span></li>
+          <li class="menuItem" id="runCmd"><span class="arrow">▶</span><span>Run (Reset)</span></li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <div class="panelHeader">
+          <span>Stage: <b id="stageName">-</b></span>
+          <span>Boss: <b id="bossName">-</b></span>
+        </div>
+
+        <div class="msg" id="msgBox">
+          <div>ルール：<span class="muted">日本語が落ちる → 英語をタイプして攻撃</span></div>
+          <div class="muted">（オーバーフロー中は毎秒ダメージ）</div>
+        </div>
+
+        <div class="small">※ 大文字小文字は無視（the tallest / The Tallest OK）</div>
+      </div>
+
+      <div class="panel">
+        <div class="panelHeader">
+          <span>Status</span>
+          <span>Miss: <b id="mistakesText">0</b></span>
+        </div>
+
+        <div class="statusList">
+          <div class="statRow">
+            <div class="name">Boss</div>
+            <div class="bars">
+              <div class="barLine bossHpLine" id="bossHpLine">
+                <span>HP</span>
+                <div class="meter" id="bossMeter"><div class="fillBoss" id="bossFill"></div></div>
+                <span><b id="bossHpText">-</b></span>
+                <img id="ex4EyeBanner" class="ex4EyeBanner" src="eye_banner.png" alt="" aria-hidden="true">
+              </div>
+              <div class="barLine">
+                <span>DMG</span>
+                <div class="meter"><div class="fillAP" id="dmgFill"></div></div>
+                <span><b id="hitDamageText">-</b></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="statRow">
+            <div class="name">Player</div>
+            <div class="bars">
+              <div class="barLine">
+                <span>HP</span>
+                <div class="meter"><div class="fillHP" id="playerFill"></div></div>
+                <span><b id="playerHpText">-</b></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hpPips" id="hpPips" aria-label="HP pips"></div>
+
+          <div class="small">
+            Buff: <b id="buffText">None</b> /
+            Invuln: <b id="invulnText">OFF</b> /
+            Continues: <b id="continuesText">3</b>
+          </div>
+
+          <div class="small">
+            Score (<b id="scoreModeLabel">Normal</b>): <b id="scoreText">0</b> /
+            Best: <b id="bestScoreText">0</b><span class="muted" id="scorePenaltyText"></span>
+          </div>
+
+          <div class="bgmRow">
+            <span>BGM:</span>
+            <input id="bgmVol" type="range" min="0" max="100" value="35" />
+            <span><b id="bgmVolText">35%</b></span>
+            <button class="bgmBtn" id="bgmMuteBtn">MUTE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ex4ResetScare" id="ex4ResetScare" aria-hidden="true"></div>
+
+
+  <!-- Intro start screen (shows before mode select) -->
+  <!-- Drop-in assets (same folder as this HTML):
+       - intro_locked_bg.png
+       - intro_unlocked_bg.png
+       - intro_locked_bgm.mp3
+       - intro_unlocked_bgm.mp3
+  -->
+  <div class="introOverlay" id="introOverlay" aria-hidden="true">
+    <div class="introBlackout" id="introBlackout"></div>
+    <div class="introBg" id="introBg"></div>
+    <div class="introShade"></div>
+    <div class="introContent">
+      <div class="introBadge" id="introBadge"></div>
+      <button class="introStartBtn" id="introStartBtn" type="button">LOAD</button>
+      <div class="introNote" id="introNote"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  const clamp = (v,a,b)=> Math.max(a, Math.min(b,v));
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+  async function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  // ✅ VOCAB LIST
+  const WORDS = [
+    
+    { prompt:"(...を)勉強する", answer:"study" },
+    { prompt:"読む", answer:"read" },
+    { prompt:"来る", answer:"come" },
+    { prompt:"を持っている", answer:"have" },
+    { prompt:"...を教える", answer:"teach" },
+    { prompt:"泳ぐ", answer:"swim" },
+    { prompt:"知っている", answer:"know" },
+    { prompt:"...がわかる", answer:"see" },
+    { prompt:"を書く", answer:"write" },
+    { prompt:"...をする", answer:"do" },
+    { prompt:"行く", answer:"go" },
+    { prompt:"を話す", answer:"speak" },
+    { prompt:"...を得る", answer:"get" },
+    { prompt:"大きい", answer:"big" },
+    { prompt:"広い", answer:"large" },
+    { prompt:"小さい", answer:"small" },
+    { prompt:"高い", answer:"high" },
+    { prompt:"背の高い", answer:"tall" },
+    { prompt:"長い", answer:"long" },
+    { prompt:"短い", answer:"short" },
+    { prompt:"英語", answer:"English" },
+    { prompt:"日本語", answer:"Japanese" },
+    { prompt:"晴れた", answer:"sunny" },
+    { prompt:"くもった", answer:"cloudy" },
+    { prompt:"正しい、右", answer:"right" },
+    { prompt:"左", answer:"left" },
+    { prompt:"忙しい", answer:"busy" },
+    { prompt:"ひまな", answer:"free" },
+    { prompt:"よい", answer:"good" },
+    { prompt:"すてきな", answer:"nice" },
+    { prompt:"おもしろい", answer:"interesting" },
+    { prompt:"美しい", answer:"beautiful" },
+    { prompt:"遅く", answer:"late" },
+    { prompt:"だれ", answer:"who" },
+    { prompt:"何", answer:"what" },
+    { prompt:"いつ", answer:"when" },
+    { prompt:"どこ", answer:"where" },
+    { prompt:"なぜ", answer:"why" },
+    { prompt:"どちら", answer:"which" },
+    { prompt:"だれの", answer:"whose" },
+    { prompt:"どうやって", answer:"how" },
+    { prompt:"すぐに", answer:"soon" },
+    { prompt:"すべて", answer:"all" },
+    { prompt:"ここで[に]", answer:"here" },
+    { prompt:"そこに", answer:"there" },
+    { prompt:"家へ", answer:"home" },
+    { prompt:"速く", answer:"fast" },
+    { prompt:"お願いします", answer:"please" },
+    { prompt:"上手に", answer:"well" },
+    { prompt:"確信している", answer:"sure" },
+
+  ];
+
+  const AUDIO = {
+    victoryBgm: "victory_bgm.mp3",
+    deathBgm: "death_bgm.mp3",
+    bossHitSfx: "boss_hit.mp3",
+    dialogueBgm: "dialogue_bgm.mp3",
+    extraDialogueBgm: "ex_dialogue_bgm.mp3",
+    extraVictoryBgm: "ex_victory_bgm.mp3",
+  };
+
+  let STAGES = [
+    {
+      stageName: "Stage 1",
+      bossName: "能海先生",
+      bossDialogue: "English RPGへようこそ！いっしょに楽しもう！",
+      midFightDialogue: "痛っ！",
+      bossMaxHp: 18,
+      hitDamage: 1,
+      spawnEveryMs: 3297,
+      fallSpeedPxPerSec: 38,
+      bgFile: "stage1_bg.png",
+      bossFile: "stage1_boss.png",
+      bossDamagedFile: "stage1_boss_dmg.png",
+      dialogueBgmFile: "dialogue_bgm.mp3",
+      playBgmFile: "stage1_bgm.mp3",
+      playBgmLoop: true,
+      words: WORDS
+    },
+    {
+      stageName: "Stage 2",
+      bossName: "アル",
+      bossDialogue: "能海先生がステージ1のボスだって？ ハハハハハ！ そんな簡単には負けないぞ。",
+      midFightDialogue: "私を叩くな！能海先生を叩け！",
+      bossMaxHp: 22,
+      hitDamage: 1,
+      spawnEveryMs: 2500,
+      fallSpeedPxPerSec: 32,
+      bgFile: "stage2_bg.png",
+      bossFile: "stage2_boss.png",
+      bossDamagedFile: "stage2_boss_dmg.png",
+      dialogueBgmFile: "dialogue_bgm.mp3",
+      playBgmFile: "stage2_bgm.mp3",
+      playBgmLoop: true,
+      words: WORDS
+    },
+    {
+      stageName: "Stage 3",
+      bossName: "アカリ",
+      bossDialogue: "アルを殺したかった!!!! 次はお前だ！",
+      midFightDialogue: "お前なんか大嫌い！",
+      bossMaxHp: 26,
+      hitDamage: 1,
+      spawnEveryMs: 1696,
+      fallSpeedPxPerSec: 45,
+      bgFile: "stage3_bg.png",
+      bossFile: "stage3_boss.png",
+      bossDamagedFile: "stage3_boss_dmg.png",
+      dialogueBgmFile: "dialogue_bgm.mp3",
+      playBgmFile: "stage3_bgm.mp3",
+      playBgmLoop: true,
+      words: WORDS
+    },
+    {
+      stageName: "Stage 4",
+      bossName: "Dragon",
+      bossDialogue: "グオオオオオオオオォォォ！！",
+      midFightDialogue: "ギャアアアアアッ！！",
+      bossMaxHp: 30,
+      hitDamage: 1,
+      spawnEveryMs: 1316,
+      fallSpeedPxPerSec: 55,
+      bgFile: "stage4_bg.png",
+      bossFile: "stage4_boss.png",
+      bossDamagedFile: "stage4_boss_dmg.png",
+      dialogueBgmFile: "dialogue_bgm.mp3",
+      playBgmFile: "stage4_bgm.mp3",
+      playBgmLoop: true,
+      words: WORDS
+    },
+    {
+      stageName: "Stage 5",
+      bossName: "能海様",
+      bossDialogue: "しゃて。。。。",
+      bossMaxHp: 10,
+      hitDamage: 1,
+      spawnEveryMs: 1150,
+      fallSpeedPxPerSec: 65,
+      bgFile: "stage5_bg.png",
+      bossFile: "stage5_boss.png",
+      bossDamagedFile: "stage5_boss_dmg.png",
+      bossFile2: "stage5_boss2.png",
+      bossDamagedFile2: "stage5_boss2_dmg.png",
+      bossFile3: "stage5_boss3.png",
+      bossDamagedFile3: "stage5_boss3_dmg.png",
+      dialogueBgmFile: "dialogue_bgm.mp3",
+      playBgmFile: "stage5_bgm.mp3",
+      playBgmLoop: false,
+      words: WORDS
+    }
+  ];
+// ---- Mode select (Normal / Extra) ----
+const LS_KEY_NORMAL_CLEARED = "bossTyping_normalCleared_v1";
+function loadNormalCleared(){
+  try{ return localStorage.getItem(LS_KEY_NORMAL_CLEARED) === "1"; }catch(_){ return false; }
+}
+function saveNormalCleared(){
+  try{ localStorage.setItem(LS_KEY_NORMAL_CLEARED, "1"); }catch(_){}
+}
+
+
+// ---- Memory wipe cheat (persistent data reset) ----
+function wipeGameMemory(){
+  // Remove only this game's stored keys (do not touch other sites' data).
+  try{
+    const rm = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith("bossTyping_")) rm.push(k);
+    }
+    rm.forEach(k => localStorage.removeItem(k));
+  }catch(_){/* ignore */}
+  try{
+    const rm = [];
+    for(let i=0;i<sessionStorage.length;i++){
+      const k = sessionStorage.key(i);
+      if(k && k.startsWith("bossTyping_")) rm.push(k);
+    }
+    rm.forEach(k => sessionStorage.removeItem(k));
+  }catch(_){/* ignore */}
+
+  // Reset in-memory mirrors (safe even if not yet initialized).
+  try{ normalCleared = false; }catch(_){/* ignore */}
+  try{ introIsUnlocked = false; }catch(_){/* ignore */}
+  try{ debugMode = false; }catch(_){/* ignore */}
+  try{ scoreNormal = 0; scoreExtra = 0; }catch(_){/* ignore */}
+  try{ hiScoreNormal = 0; hiScoreExtra = 0; }catch(_){/* ignore */}
+  try{ continuesUsedThisRun = 0; }catch(_){/* ignore */}
+}
+
+// ---- Debug mode (playtesting) ----
+const SS_KEY_DEBUG_MODE = "bossTyping_debugMode_v1";
+function loadDebugMode(){
+  try{ return sessionStorage.getItem(SS_KEY_DEBUG_MODE) === "1"; }catch(_){ return false; }
+}
+function saveDebugMode(on){
+  try{ sessionStorage.setItem(SS_KEY_DEBUG_MODE, on ? "1" : "0"); }catch(_){}
+}
+
+// ---- High score (persistent) ----
+// Separate best scores for Normal / Extra. (Current run score resets on restart.)
+const LS_KEY_HISCORE_NORMAL = "bossTyping_hiScore_normal_v1";
+const LS_KEY_HISCORE_EXTRA  = "bossTyping_hiScore_extra_v1";
+function loadHighScore(mode){
+  try{
+    const k = (mode === "extra") ? LS_KEY_HISCORE_EXTRA : LS_KEY_HISCORE_NORMAL;
+    const v = parseInt(localStorage.getItem(k) || "0", 10);
+    return Number.isFinite(v) ? Math.max(0, v) : 0;
+  }catch(_){ return 0; }
+}
+function saveHighScore(mode, val){
+  try{
+    const k = (mode === "extra") ? LS_KEY_HISCORE_EXTRA : LS_KEY_HISCORE_NORMAL;
+    localStorage.setItem(k, String(Math.max(0, Math.trunc(val || 0))));
+  }catch(_){}
+}
+
+
+const STAGES_NORMAL = STAGES;
+// Extra mode: 4 stages. (You can customize these later.)
+const STAGES_EXTRA = STAGES_NORMAL.slice(0, 4).map((s, i) => ({
+  ...s,
+  stageName: `EX Stage ${i + 1}`,
+  dialogueBgmFile: AUDIO.extraDialogueBgm,
+}));
+
+// Extra Stage boss images (put these files next to index.html)
+// Extra Stage backgrounds (placeholders you can swap any time): ex1_bg.png, ex2_bg.png, ex3_bg.png, ex4_bg.png
+// EX Stage 1
+STAGES_EXTRA[0] = {
+  ...STAGES_EXTRA[0],
+  bgFile: "ex1_bg.png",
+  bossName: "Emi",
+  bossDialogue: "エクストラステージへようこそ！ここからもっと難しくなるよ！",
+  midFightDialogue: "そんなに簡単には諦めない！",
+  bossMaxHp: 25,
+  bossFile: "ex1_boss.png",
+  bossDamagedFile: "ex1_boss_dmg.png",
+  bossFile2: "ex1_boss_half.png",
+  bossDamagedFile2: "ex1_boss_half_dmg.png",
+  playBgmFile: "ex1_bgm.mp3",
+  playBgmLoop: true,
+};
+// EX Stage 2
+STAGES_EXTRA[1] = {
+  ...STAGES_EXTRA[1],
+  bgFile: "ex2_bg.png",
+  bossName: "Asa",
+  bossDialogue: "瞬きするな！間違った単語を打っちゃうぞ！",
+  midFightDialogue: "まだ戦える！",
+  bossMaxHp: 30,
+  bossFile: "ex2_boss.png",
+  bossDamagedFile: "ex2_boss_dmg.png",
+  bossFile2: "ex2_boss_half.png",
+  bossDamagedFile2: "ex2_boss_half_dmg.png",
+  playBgmFile: "ex2_bgm.mp3",
+  playBgmLoop: true,
+};
+
+// EX Stage 3
+STAGES_EXTRA[2] = {
+  ...STAGES_EXTRA[2],
+  bgFile: "ex3_bg.png",
+  bossName: "Akari, the Witch",
+  bossDialogue: "誰が終わりだって言った！？まだ終わってないぞ！！",
+  midFightDialogue: "負けない！もう二度と！",
+  // Lower spawn rate to 80% of original (i.e., 1/0.8 = 1.25x interval)
+  spawnEveryMs: Math.round(STAGES_EXTRA[2].spawnEveryMs * 1.25),
+  bossMaxHp: 40,
+  bossFile: "ex3_boss.png",
+  bossDamagedFile: "ex3_boss_dmg.png",
+  bossFile2: "ex3_boss_half.png",
+  bossDamagedFile2: "ex3_boss_half_dmg.png",
+  playBgmFile: "ex3_bgm.mp3",
+  playBgmLoop: true,
+};
+// EX Stage 4
+STAGES_EXTRA[3] = {
+  ...STAGES_EXTRA[3],
+  bgFile: "ex4_bg.png",
+  bossName: "Vexavi",
+  bossDialogue: "Sorry... for this...",
+  // EX4 boss sprites by phase (place these files next to index.html)
+  // Phase 1–2: ex4_boss_p12.png
+  // Phase 3–4: ex4_boss_p34.png
+  // Phase 5:   ex4_boss_p5.png
+  bossFile: "ex4_boss_p12.png",
+  bossDamagedFile: "ex4_boss_p12.png",
+  bossFile2: "ex4_boss_p34.png",
+  bossDamagedFile2: "ex4_boss_p34.png",
+  bossFile3: "ex4_boss_p5.png",
+  bossDamagedFile3: "ex4_boss_p5.png",
+  bossMaxHp: 1,
+  hitDamage: 0, // invulnerable (cannot take damage)
+  bossInvulnerable: true,
+  playBgmFile: "ex4_bgm.mp3",
+  playBgmLoop: false,
+  endStageOnBgmEnd: true, // win when the EX4 BGM finishes
+  ex4LaughBgm: "ex4_laugh_bgm.mp3",
+};
+
+let currentMode = "normal"; // "normal" | "extra"
+let debugMode = loadDebugMode();
+let normalCleared = loadNormalCleared();
+
+function setMode(mode){
+  currentMode = (mode === "extra") ? "extra" : "normal";
+  STAGES = (currentMode === "extra") ? STAGES_EXTRA : STAGES_NORMAL;
+  // Buffs are disabled in Extra Mode (Normal-only)
+  if(currentMode === "extra"){
+    resetBuffState();
+  }
+  updateUI();
+}
+
+
+  const BASE_PLAYER_MAX_HP = 10;
+  const CHEAT_SKIP_STAGE5 = "657810";
+  const DEBUG_MODE_CODE = "debugmode1";
+
+  const CHEAT_MEMORY_WIPE = "memorywipe1";
+  const MAX_CONTINUES = 3;
+  const CONTINUE_HP = 3;
+  const CONTINUE_DECISION_SEC = 10;
+
+  const wordLane = document.getElementById("wordLane");
+  const overflowBadge = document.getElementById("overflowBadge");
+
+  const bgImg = document.getElementById("bgImg");
+  const bgFallback = document.getElementById("bgFallback");
+
+  const bossImg = document.getElementById("bossImg");
+  const bossFallback = document.getElementById("bossFallback");
+  const bossBubble = document.getElementById("bossBubble");
+  const stage5InvBanner = document.getElementById("stage5InvBanner");
+  const stage5Timer = document.getElementById("stage5Timer");
+  const ex2Timer = document.getElementById("ex2Timer");
+  const ex4Timer = document.getElementById("ex4Timer");
+  const ex4ResetScare = document.getElementById("ex4ResetScare");
+  const bossMeter = document.getElementById("bossMeter");
+  const stage5InvSign = document.getElementById("stage5InvSign"); // NEW
+
+  const damageFlash = document.getElementById("damageFlash");
+
+  const overlay = document.getElementById("overlay");
+  const overlayTitle = document.getElementById("overlayTitle");
+  const overlayDesc = document.getElementById("overlayDesc");
+  const overlayChoices = document.getElementById("overlayChoices");
+  const overlayBox = overlay.querySelector(".overlayBox");
+  const overlayHint = document.getElementById("overlayHint");
+  const countdownText = document.getElementById("countdownText");
+
+  const stageNameEl = document.getElementById("stageName");
+  const bossNameEl = document.getElementById("bossName");
+
+  const bossFill = document.getElementById("bossFill");
+  const bossHpText = document.getElementById("bossHpText");
+  const ex4EyeBanner = document.getElementById("ex4EyeBanner");
+
+  const hitDamageText = document.getElementById("hitDamageText");
+  const dmgFill = document.getElementById("dmgFill");
+
+  const playerFill = document.getElementById("playerFill");
+  const playerHpText = document.getElementById("playerHpText");
+  const mistakesText = document.getElementById("mistakesText");
+
+  const buffText = document.getElementById("buffText");
+  const invulnText = document.getElementById("invulnText");
+  const continuesText = document.getElementById("continuesText");
+  const scoreModeLabel = document.getElementById("scoreModeLabel");
+  const scoreText = document.getElementById("scoreText");
+  const bestScoreText = document.getElementById("bestScoreText");
+  const scorePenaltyText = document.getElementById("scorePenaltyText");
+
+
+  const msgBox = document.getElementById("msgBox");
+  const answerForm = document.getElementById("answerForm");
+  const answerInput = document.getElementById("answerInput");
+
+  const hpPipsEl = document.getElementById("hpPips");
+
+  const startCmd = document.getElementById("startCmd");
+  const resetCmd = document.getElementById("resetCmd");
+  const runCmd = document.getElementById("runCmd");
+
+  const bgmVol = document.getElementById("bgmVol");
+  const bgmVolText = document.getElementById("bgmVolText");
+  const bgmMuteBtn = document.getElementById("bgmMuteBtn");
+
+  function showOverlay(show){ overlay.classList.toggle("show", show); }
+  function setOverlayText(title, desc, hint){
+    overlayTitle.textContent = title;
+    overlayDesc.textContent = desc;
+    overlayHint.textContent = hint;
+    countdownText.textContent = "";
+    overlayChoices.classList.remove("show");
+    overlayChoices.innerHTML = "";
+    if(overlayBox) overlayBox.classList.remove("debugSmall");
+    overlay.style.cursor = "pointer";
+  }
+  function setOverlayTitleStageClear(stageName){
+    overlayTitle.innerHTML = `<span class="stageClearSlide">${escapeHtml(stageName)} Clear</span>`;
+  }
+
+  function pushMsg(text, muted=false){
+    const div = document.createElement("div");
+    div.textContent = text;
+    if(muted) div.className = "muted";
+    msgBox.appendChild(div);
+    while(msgBox.children.length > 8) msgBox.removeChild(msgBox.firstChild);
+    msgBox.scrollTop = msgBox.scrollHeight;
+  }
+
+  function showStage5Timer(show){
+    stage5Timer.classList.toggle("show", !!show);
+    // NEW: show flashing sign whenever timer is shown
+    stage5InvSign.classList.toggle("show", !!show);
+  }
+
+  function formatTime(sec){
+    const s = Math.max(0, Math.ceil(sec));
+    const m = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2, "0");
+    return `${m}:${ss}`;
+  }
+    let stage5TimerLastText = "";
+
+  function updateStage5Timer(){
+    if(!(gameState === "playing" && stageIndex === 4 && stage5Phase >= 2)){
+      showStage5Timer(false);
+      return;
+    }
+    showStage5Timer(true);
+
+    const dur = (Number.isFinite(bgm.duration) && bgm.duration > 0) ? bgm.duration : null;
+    let txt = "残り --:--";
+    if(dur != null){
+      const rem = Math.max(0, dur - bgm.currentTime);
+      txt = `残り ${formatTime(rem)}`;
+    }
+    if(txt !== stage5TimerLastText){
+      stage5TimerLastText = txt;
+      stage5Timer.textContent = txt;
+    }
+  }
+
+  let bossBubbleTimer = null;
+  function showBossBubble(text, ms=4000){
+    if(bossBubbleTimer){ clearTimeout(bossBubbleTimer); bossBubbleTimer = null; }
+    bossBubble.textContent = text;
+    bossBubble.classList.add("show");
+    bossBubbleTimer = setTimeout(() => {
+      bossBubble.classList.remove("show");
+      bossBubble.textContent = "";
+      bossBubbleTimer = null;
+    }, ms);
+  }
+  function hideBossBubble(){
+    if(bossBubbleTimer){ clearTimeout(bossBubbleTimer); bossBubbleTimer = null; }
+    bossBubble.classList.remove("show");
+    bossBubble.textContent = "";
+  }
+
+  function setStage5InvBanner(show){
+    stage5InvBanner.classList.toggle("show", !!show);
+  }
+
+  const bgm = new Audio();
+  bgm.preload = "auto";
+  bgm.loop = true;
+
+  let currentBgm = "";
+  let isMuted = false;
+  let lastVol = 0.35;
+  let audioUnlocked = false;
+
+  let savedBgmState = null;
+  function saveBgmState(){
+    savedBgmState = {
+      src: currentBgm || (bgm.currentSrc || ""),
+      time: Number.isFinite(bgm.currentTime) ? bgm.currentTime : 0,
+      loop: !!bgm.loop
+    };
+  }
+  function restoreBgmState(){
+    if(!savedBgmState || !savedBgmState.src) return;
+    const {src, time, loop} = savedBgmState;
+    setBgm(src, loop);
+    try{ bgm.currentTime = Math.max(0, time || 0); }catch(_){}
+    savedBgmState = null;
+  }
+
+  function pushAudioHintOnce(msg){
+    pushMsg(msg || "⚠️ Safari/iOS：自動再生がブロックされる場合があります。音が出ない時はSTARTを押してからUNMUTEを押してください", true);
+  }
+
+  function setBgmVolume(v01){
+    const v = Math.max(0, Math.min(1, v01));
+    lastVol = v;
+    // Always keep the real volume in sync; muting is handled via bgm.muted.
+    bgm.volume = v;
+    try{ bgm.muted = !!isMuted; }catch(_){/* ignore */}
+    bgmVol.value = String(Math.round(v * 100));
+    bgmVolText.textContent = `${Math.round(v * 100)}%`;
+  }
+  function toggleMute(){
+    isMuted = !isMuted;
+    try{ bgm.muted = !!isMuted; }catch(_){/* ignore */}
+    bgm.volume = lastVol;
+    bgmMuteBtn.textContent = isMuted ? "UNMUTE" : "MUTE";
+    // Helpful on iOS/Safari: unmuting is a user gesture, so retry play.
+    if(!isMuted) tryPlayBgm();
+  }
+  async function tryPlayBgm(){
+    try{
+      // If the track ended (non-loop), rewind so play() can restart.
+      try{
+        if(Number.isFinite(bgm.duration) && bgm.duration > 0){
+          if(bgm.ended || bgm.currentTime >= bgm.duration - 0.05){
+            bgm.currentTime = 0;
+          }
+        }
+      }catch(_){/* ignore */}
+
+      // Keep element mute state consistent with the UI state.
+      try{ bgm.muted = !!isMuted; }catch(_){/* ignore */}
+      if(!isMuted) bgm.volume = lastVol;
+
+      const p = bgm.play();
+      if(p && typeof p.catch === "function"){
+        p.catch(() => {
+          // Fallback: try muted autoplay (often allowed) so BGM can begin immediately.
+          try{
+            const prevUserMuted = isMuted;
+            const prevMutedProp = bgm.muted;
+
+            // Force muted playback and reflect it in UI so UNMUTE works.
+            isMuted = true;
+            bgmMuteBtn.textContent = "UNMUTE";
+            bgm.muted = true;
+            bgm.volume = lastVol;
+
+            const p2 = bgm.play();
+            if(p2 && typeof p2.catch === "function"){
+              p2.catch(() => {
+                // Restore previous state if even muted autoplay was blocked.
+                isMuted = prevUserMuted;
+                bgmMuteBtn.textContent = prevUserMuted ? "UNMUTE" : "MUTE";
+                bgm.muted = prevMutedProp;
+                if(!prevUserMuted) bgm.volume = lastVol;
+                pushAudioHintOnce();
+              });
+            }else{
+              // muted autoplay likely succeeded
+              pushAudioHintOnce("🔇 自動再生がブロックされました（ミュートで再生中）。音を出すにはUNMUTEしてください");
+            }
+          }catch(_){
+            pushAudioHintOnce();
+          }
+        });
+      }
+    }catch(_){
+      pushAudioHintOnce();
+    }
+  }
+  
+  // iOS/iPad Safari sometimes treats later async BGM starts as "autoplay" and forces mute.
+  // When we have a REAL user gesture (tap/click), use this helper to start BGM with sound.
+  function tryPlayBgmFromGesture(){
+    // Explicit user intent: default to unmuted.
+    isMuted = false;
+    bgmMuteBtn.textContent = "MUTE";
+    try{ bgm.volume = lastVol; }catch(_){/* ignore */}
+
+    // If the track ended (non-loop), rewind so play() can restart.
+    try{
+      if(Number.isFinite(bgm.duration) && bgm.duration > 0){
+        if(bgm.ended || bgm.currentTime >= bgm.duration - 0.05){
+          bgm.currentTime = 0;
+        }
+      }
+    }catch(_){/* ignore */}
+
+    // Workaround: start muted, then immediately unmute in the same gesture tick.
+    // This improves the success rate of audible playback on iOS Safari.
+    try{
+      try{ bgm.muted = true; }catch(_){/* ignore */}
+      const p = bgm.play();
+      try{ bgm.muted = false; }catch(_){/* ignore */}
+      if(p && typeof p.catch === "function"){
+        p.catch(() => {
+          pushAudioHintOnce("⚠️ iPad/Safari：音が出ない時は、もう一度画面をタップしてからMUTE/UNMUTEを押してください");
+        });
+      }
+    }catch(_){
+      pushAudioHintOnce("⚠️ iPad/Safari：音が出ない時は、もう一度画面をタップしてからMUTE/UNMUTEを押してください");
+    }
+  }
+
+
+function setBgm(src, loop=true, autoplay=true){
+    bgm.loop = !!loop;
+    if(!src){ stopBgm(); return; }
+    if(currentBgm !== src){
+      currentBgm = src;
+      bgm.src = src;
+      bgm.currentTime = 0;
+      try{ bgm.load(); }catch(_){/* ignore */}
+    }
+    if(autoplay) tryPlayBgm();
+  }
+  function stopBgm(){
+    currentBgm = "";
+    bgm.pause();
+    bgm.removeAttribute("src");
+    bgm.load();
+  }
+
+  // ---- Intro start screen (pre-menu) ----
+  // Replace these drop-in filenames anytime you want by overwriting the files in the same folder.
+  const INTRO_BG_LOCKED = "intro_locked_bg.png";
+  const INTRO_BG_UNLOCKED = "intro_unlocked_bg.png";
+  const INTRO_BGM_LOCKED = "intro_locked_bgm.mp3";
+  const INTRO_BGM_UNLOCKED = "intro_unlocked_bgm.mp3";
+  const INTRO_FAKE_LOAD_MS = 5000;
+
+  const introOverlay = document.getElementById("introOverlay");
+  const introBg = document.getElementById("introBg");
+  const introBadge = document.getElementById("introBadge");
+  const introStartBtn = document.getElementById("introStartBtn");
+  const introNote = document.getElementById("introNote");
+
+  let introTimer = null;
+  let introState = "idle"; // "idle" -> "loading" -> "ready"
+  let introShownOnce = false;
+  let introBgmErrorHandler = null;
+
+  // ---- Intro unlocked BG glitch reveal ----
+  let introIsUnlocked = false;
+
+  let introRevealActive = false;
+  let introRevealRAF = null;
+  let introPulseTimer = null;
+  let introPulseCleanupTimer = null;
+  let introBaseOpacity = 1; // eased 0..1
+
+  function stopIntroBgGlitch(){
+    introRevealActive = false;
+    if(introRevealRAF){ cancelAnimationFrame(introRevealRAF); introRevealRAF = null; }
+    if(introPulseTimer){ clearTimeout(introPulseTimer); introPulseTimer = null; }
+    if(introPulseCleanupTimer){ clearTimeout(introPulseCleanupTimer); introPulseCleanupTimer = null; }
+    introBg.classList.remove("introGlitching", "introGlitchPulse");
+    introBg.style.removeProperty("--gX");
+    introBg.style.removeProperty("--gY");
+    introBg.style.removeProperty("--gSkew");
+    introBg.style.removeProperty("--gShiftX");
+  }
+
+  function setIntroBgHidden(hidden){
+    introBg.classList.toggle("introHidden", !!hidden);
+    if(hidden){
+      introBaseOpacity = 0;
+      introBg.style.opacity = "0";
+    }else{
+      introBaseOpacity = 1;
+      introBg.style.opacity = "1";
+    }
+  }
+
+  function startUnlockedIntroBgReveal(){
+    // Only for unlocked intro background
+    stopIntroBgGlitch();
+    introRevealActive = true;
+
+    introBg.classList.remove("introHidden");
+    introBg.classList.add("introGlitching");
+
+    const start = performance.now();
+    const dur = INTRO_FAKE_LOAD_MS;
+
+    const step = () => {
+      if(!introRevealActive) return;
+      const p = clamp((performance.now() - start) / dur, 0, 1);
+      // ease-in so it starts "invisible"
+      const eased = Math.pow(p, 1.18);
+      introBaseOpacity = eased;
+      introBg.style.opacity = String(eased);
+      if(p < 1){
+        introRevealRAF = requestAnimationFrame(step);
+      }else{
+        introRevealRAF = null;
+      }
+    };
+    introRevealRAF = requestAnimationFrame(step);
+
+    const pulse = () => {
+      if(!introRevealActive) return;
+
+      introBg.classList.add("introGlitchPulse");
+      introBg.style.setProperty("--gX", `${(Math.random() * 10 - 5).toFixed(1)}px`);
+      introBg.style.setProperty("--gY", `${(Math.random() * 8 - 4).toFixed(1)}px`);
+      introBg.style.setProperty("--gSkew", `${(Math.random() * 3 - 1.5).toFixed(2)}deg`);
+      introBg.style.setProperty("--gShiftX", `${(Math.random() * 14 - 7).toFixed(1)}px`);
+
+      // Random "in and out" (briefly vanish) vs "flash in"
+      const base = clamp(introBaseOpacity, 0, 1);
+      const dip = Math.random() < 0.62; // more "out" flickers
+      const pulseOpacity = dip
+        ? (base * (Math.random() * 0.10))                  // out
+        : clamp(base + 0.35 + Math.random() * 0.65, 0, 1); // in
+      introBg.style.opacity = String(pulseOpacity);
+
+      const pulseMs = 35 + Math.random() * 110; // rapid pulse (≈35–145ms)
+      if(introPulseCleanupTimer) clearTimeout(introPulseCleanupTimer);
+      introPulseCleanupTimer = setTimeout(() => {
+        introBg.classList.remove("introGlitchPulse");
+        introBg.style.opacity = String(clamp(introBaseOpacity, 0, 1));
+        introPulseCleanupTimer = null;
+      }, pulseMs);
+    };
+
+    const scheduleNext = () => {
+      if(!introRevealActive) return;
+      const fast = 30 + Math.random() * 120;  // mostly 30–150ms
+      const slow = 150 + Math.random() * 350; // occasional longer lull
+      const delay = (Math.random() < 0.18) ? slow : fast; // very rapid, still random
+      introPulseTimer = setTimeout(() => {
+        pulse();
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+  }
+
+  function finishUnlockedIntroBgReveal(){
+    // Called when fake loading finishes (~5s)
+    stopIntroBgGlitch();
+    introBg.classList.remove("introHidden");
+    introBg.style.opacity = "1";
+  }
+
+
+  function setIntroState(state){
+    introState = state;
+    if(state === "idle"){
+      introStartBtn.disabled = false;
+      introStartBtn.textContent = "LOAD";
+      introNote.textContent = introNote.textContent || "Press LOAD";
+    }else if(state === "loading"){
+      introStartBtn.disabled = true;
+      introStartBtn.textContent = "LOADING…";
+    }else if(state === "ready"){
+      introStartBtn.disabled = false;
+      introStartBtn.textContent = "START";
+      introNote.textContent = "Ready.";
+    }
+  }
+
+  function showIntroStartScreen(force=false){
+    if(introShownOnce && !force) return;
+    introShownOnce = true;
+
+    setIntroState("idle");
+
+    const cleared = loadNormalCleared();
+    introIsUnlocked = !!cleared;
+    stopIntroBgGlitch();
+    // Unlocked intro bg starts invisible until LOAD is pressed.
+    setIntroBgHidden(introIsUnlocked);
+
+
+    const bgFile = cleared ? INTRO_BG_UNLOCKED : INTRO_BG_LOCKED;
+    const bgmFile = cleared ? INTRO_BGM_UNLOCKED : INTRO_BGM_LOCKED;
+
+    // Background: set directly (more robust) + keep CSS var for fallback.
+    introBg.style.setProperty("--introBg", `url("${bgFile}")`);
+    introBg.style.backgroundImage = `url("${bgFile}")`;
+
+    // Badge text (optional)
+    introBadge.textContent = cleared ? "English RPG typing game" : "English typing game";
+
+    // Diagnostics / guidance
+    introNote.textContent = "Press LOAD";
+// Preload background to detect missing file / wrong path
+    try{
+      const img = new Image();
+      img.onload = () => {
+        // background loaded
+      };
+      img.onerror = () => {
+        introNote.textContent = `⚠️ Background not found: ${bgFile} (check filename + case, and that it is in the same folder as index.html)`;
+      };
+      img.src = `${bgFile}?v=${Date.now()}`; // cache-bust for testing
+    }catch(_){}
+
+    introOverlay.classList.add("show");
+    introOverlay.setAttribute("aria-hidden", "false");
+
+    // Audio: set the track now, but DO NOT start until the user presses LOAD.
+    stopBgm();
+    setBgm(bgmFile, true, false);
+    if(introBgmErrorHandler){
+      bgm.removeEventListener("error", introBgmErrorHandler);
+      introBgmErrorHandler = null;
+    }
+
+    const onBgmError = () => {
+      if(currentBgm === bgmFile){
+        introNote.textContent = `⚠️ BGM not found: ${bgmFile} (check filename + case, and that it is in the same folder as index.html)`;
+      }
+      bgm.removeEventListener("error", onBgmError);
+    };
+    introBgmErrorHandler = onBgmError;
+    bgm.addEventListener("error", onBgmError);
+  }
+  function hideIntroStartScreen(){
+    if(introTimer) clearTimeout(introTimer);
+    introTimer = null;
+
+    stopIntroBgGlitch();
+
+    introOverlay.classList.remove("show");
+    introOverlay.setAttribute("aria-hidden", "true");
+
+    // Stop intro music. (Stage/Dialogue BGMs will start normally once the game begins.)
+    stopBgm();
+  }
+  introStartBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    // Any button press counts as a user gesture: force an audible start on iPad/Safari.
+    try{ tryPlayBgmFromGesture(); }catch(_){
+      try{ bgm.muted = false; }catch(_){/* ignore */}
+      tryPlayBgm();
+    }
+if(introState === "idle"){
+      // Fake loading for ~5 seconds
+      // Unlocked intro background: glitch-reveal while "loading".
+      if(introIsUnlocked){ startUnlockedIntroBgReveal(); }
+
+      setIntroState("loading");
+      const start = performance.now();
+      if(introTimer) clearTimeout(introTimer);
+      introTimer = setInterval(() => {
+        const t = performance.now() - start;
+        const pct = clamp((t / INTRO_FAKE_LOAD_MS) * 100, 0, 100);
+        introNote.textContent = `Loading… ${Math.floor(pct)}%`;
+        if(t >= INTRO_FAKE_LOAD_MS){
+          clearInterval(introTimer);
+          introTimer = null;
+          setIntroState("ready");
+          if(introIsUnlocked){ finishUnlockedIntroBgReveal(); }
+        }
+      }, 120);
+      return;
+    }
+
+    if(introState === "ready"){
+      hideIntroStartScreen();
+      // Move the player directly to mode select ("the actual game")
+      try{ showModeSelectScreen(); }catch(_){ /* ignore */ }
+    }
+  });
+
+
+
+  const sfxPool = { bossHit: [], idx: 0 };
+  function initSfxPool(){
+    const n = 4;
+    sfxPool.bossHit = Array.from({length:n}, () => {
+      const a = new Audio(AUDIO.bossHitSfx);
+      a.preload = "auto";
+      a.volume = 0.55;
+      return a;
+    });
+  }
+  function playBossHitSfx(){
+    const arr = sfxPool.bossHit;
+    if(!arr || arr.length === 0) return;
+    const a = arr[sfxPool.idx % arr.length];
+    sfxPool.idx++;
+    try{ a.currentTime = 0; a.play().catch(()=>{}); }catch(_){}
+  }
+
+  function unlockAudioOnce(){
+    if(audioUnlocked) return;
+    audioUnlocked = true;
+    // No auto-audio warmup here: intro BGM must only start when the user presses LOAD.
+  }
+
+  // ---- Buffs ----
+  let selectedBuff = null;
+  let bossDamageMult = 1;
+  let playerDamageMult = 1;
+
+  let invulnActive = false;
+  let invulnUsed = false;
+  let invulnUntil = 0;
+
+  function resetBuffState(){
+    selectedBuff = null;
+    bossDamageMult = 1;
+    playerDamageMult = 1;
+    invulnActive = false;
+    invulnUsed = false;
+    invulnUntil = 0;
+  }
+
+  function buffLabel(){
+    if(selectedBuff === "buff1") return "1) Double DMG / Double DMG taken";
+    if(selectedBuff === "buff3") return "3) 1-time 5s Invuln at 0 HP";
+    return "None";
+  }
+
+  function applyBuffSelection(buffId){
+    if(buffId === "buff2") buffId = null;
+    selectedBuff = buffId;
+
+    bossDamageMult = 1;
+    playerDamageMult = 1;
+
+    invulnActive = false;
+    invulnUsed = false;
+    invulnUntil = 0;
+
+    if(buffId === "buff1"){
+      bossDamageMult = 2;
+      playerDamageMult = 2;
+    }
+  }
+
+  function showBuffSelect(){
+    return new Promise((resolve) => {
+      gameState = "buffselect";
+      setInputsEnabled(false);
+
+      setBgm(AUDIO.dialogueBgm, true);
+
+      showOverlay(true);
+      overlayTitle.textContent = "Choose a Buff";
+      overlayDesc.textContent = "ステージ1の前に、1つだけバフを選んでください（この1回のプレイだけ有効）";
+      overlayHint.textContent = "▶ クリックで選択";
+      countdownText.textContent = "";
+      overlay.style.cursor = "pointer";
+
+      overlayChoices.classList.add("show");
+      overlayChoices.innerHTML = `
+        <div class="choiceBtn" data-buff="buff1">
+          <div class="title">Buff 1</div>
+          <div class="desc">与えるダメージ2倍 / 受けるダメージ2倍</div>
+          <div class="note">（強いけどリスク大）</div>
+        </div>
+        <div class="choiceBtn" data-buff="buff3">
+          <div class="title">Buff 3</div>
+          <div class="desc">HPが0になる直前：1回だけHP1で耐えて、5秒無敵</div>
+          <div class="note">（発動は1回だけ）</div>
+        </div>
+      `;
+
+      const onClick = (e) => {
+        const btn = e.target.closest(".choiceBtn");
+        if(!btn) return;
+        const id = btn.getAttribute("data-buff");
+        if(!id) return;
+        applyBuffSelection(id);
+        cleanup();
+        showOverlay(false);
+        resolve();
+      };
+
+      const cleanup = () => {
+        overlayChoices.innerHTML = "";
+        overlayChoices.classList.remove("show");
+        overlay.removeEventListener("click", onClick);
+      };
+
+      overlay.addEventListener("click", onClick);
+    });
+  }
+
+  
+function showModeSelectScreen(){
+  normalCleared = loadNormalCleared();
+
+  gameState = "modeselect";
+  setInputsEnabled(false);
+
+  showOverlay(true);
+  // Play menu BGM on mode select
+  setBgm("dialogue_bgm.mp3", true, true);
+
+  if(overlayBox) overlayBox.classList.remove("debugSmall");
+  overlay.style.cursor = "default";
+
+  overlayTitle.textContent = "MODE SELECT";
+  overlayDesc.textContent = "モードを選んでください";
+  overlayHint.textContent = normalCleared
+    ? "Extra Mode 解放済み！"
+    : "Normal Mode をクリアすると Extra Mode が解放されます";
+
+  countdownText.textContent = "";
+  overlayChoices.classList.add("show");
+  overlayChoices.innerHTML = "";
+
+  const addBtn = ({title, desc, note, disabled, onClick}) => {
+    const b = document.createElement("div");
+    b.className = "choiceBtn" + (disabled ? " disabled" : "");
+    if(disabled){
+      b.style.opacity = "0.45";
+      b.style.pointerEvents = "none";
+      b.style.filter = "grayscale(.12)";
+    }
+    b.innerHTML = `
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="desc">${escapeHtml(desc)}</div>
+      ${note ? `<div class="note">${escapeHtml(note)}</div>` : "" }
+    `;
+    if(!disabled){
+      b.addEventListener("click", (e) => { e.stopPropagation(); onClick(); });
+    }
+    overlayChoices.appendChild(b);
+  };
+
+  addBtn({
+    title: "Normal Mode",
+    desc: "現在のゲーム（5ステージ）",
+    note: normalCleared ? "Cleared ✓（Extra が選べます）" : "Clear すると Extra 解放",
+    disabled: false,
+    onClick: () => {
+      setMode("normal");
+      showOverlay(false);
+      startGame();
+    }
+  });
+
+  addBtn({
+    title: "Extra Mode",
+    desc: "4ステージ（Normal クリア後に解放）",
+    note: normalCleared ? "Unlocked ✓" : "LOCKED: Normal をクリアしてね",
+    disabled: !normalCleared,
+    onClick: () => {
+      setMode("extra");
+      showOverlay(false);
+      startGame();
+    }
+  });
+}
+// ---- Game state ----
+
+
+  // ---- Async UI flow cancellation ----
+  // Prevents countdown/dialogue/etc. from resuming after Reset/Run.
+  let uiFlowToken = 0;
+  let uiFlowCleanups = [];
+  function addUiFlowCleanup(fn){
+    uiFlowCleanups.push(fn);
+    return () => {
+      const i = uiFlowCleanups.indexOf(fn);
+      if(i >= 0) uiFlowCleanups.splice(i, 1);
+    };
+  }
+  function cancelUiFlow(){
+    uiFlowToken++;
+    const toRun = uiFlowCleanups.slice();
+    uiFlowCleanups.length = 0;
+    for(const fn of toRun){
+      try{ fn(); }catch(_){/* ignore */}
+    }
+    return uiFlowToken;
+  }
+  function isUiFlow(t){ return t === uiFlowToken; }
+
+  let gameState = "idle";
+  let stageIndex = 0;
+
+  // Only true immediately after the player's FIRST ever clear of Stage 5 (Normal).
+  // Used to send them back to the start menu on the next Reset from the victory screen.
+  let victoryResetToStartMenuOnce = false;
+
+  let bossHp = 0;
+  let bossMaxHp = 0;
+
+  // For non-Stage5 bosses: swap to phase 2 art when HP drops below half (used by Extra stages)
+  let bossVariantPhase = 1;
+  let baseHitDamage = 1;
+
+  let playerMaxHp = BASE_PLAYER_MAX_HP;
+  let playerHp = BASE_PLAYER_MAX_HP;
+  let mistakes = 0;
+
+  let continuesLeft = MAX_CONTINUES;
+  let continuePromptUntilMs = 0;
+  let continueListeners = null;
+
+  // ---- Scoring ----
+  // Normal and Extra have separate scores (no carryover between modes).
+  // Score carries across stages within the same run/mode.
+  let scoreNormal = 0;
+  let scoreExtra = 0;
+  let hiScoreNormal = loadHighScore("normal");
+  let hiScoreExtra  = loadHighScore("extra");
+  let continuesUsedThisRun = 0; // affects future points: ×(0.8^continuesUsed)
+
+  function getActiveScore(){ return (currentMode === "extra") ? scoreExtra : scoreNormal; }
+  function setActiveScore(v){
+    v = Math.max(0, Math.trunc(Number(v) || 0));
+    if(currentMode === "extra") scoreExtra = v; else scoreNormal = v;
+  }
+  function getActiveHiScore(){ return (currentMode === "extra") ? hiScoreExtra : hiScoreNormal; }
+  function setActiveHiScore(v){
+    v = Math.max(0, Math.trunc(Number(v) || 0));
+    if(currentMode === "extra"){ hiScoreExtra = v; saveHighScore("extra", v); }
+    else { hiScoreNormal = v; saveHighScore("normal", v); }
+  }
+  function scorePenaltyMultiplier(){
+    // 0 continues => ×1.00, 1 => ×0.80, 2 => ×0.64, 3 => ×0.512 ...
+    return Math.pow(0.8, Math.max(0, continuesUsedThisRun|0));
+  }
+  function resetRunScoring(){
+    // Reset current mode run score + penalty.
+    setActiveScore(0);
+    continuesUsedThisRun = 0;
+  }
+  function resetAllRunScoring(){
+    scoreNormal = 0;
+    scoreExtra = 0;
+    continuesUsedThisRun = 0;
+  }
+  function addScore(points){
+    const p = Math.max(0, Math.trunc(Number(points) || 0));
+    if(p <= 0) return;
+    const ns = getActiveScore() + p;
+    setActiveScore(ns);
+    if(ns > getActiveHiScore()) setActiveHiScore(ns);
+  }
+
+  function countEnglishLetters(s){
+    // Count A–Z letters only (spaces/punct ignored). "the tallest" => 10
+    const norm = normalizeAnswer(s || "");
+    const letters = norm.replace(/[^a-z]/g, "");
+    return Math.max(0, letters.length);
+  }
+  function basePointsForAnswer(answer){
+    // Simple length-based scoring: 10 points per letter (min 10).
+    const n = countEnglishLetters(answer);
+    return Math.max(10, n * 10);
+  }
+  function fallingHeightMultiplier(y){
+    // Higher on screen => more points (range ~1.2x .. 2.0x)
+    const h = laneHeight();
+    const maxY = Math.max(1, h - 30);
+    const progress = clamp(y / maxY, 0, 1);     // 0 top, 1 bottom
+    const height01 = 1 - progress;              // 1 top, 0 bottom
+    return 1.2 + 0.8 * height01;                // 2.0 top, 1.2 bottom
+  }
+  function calcWordScore(word){
+    const base = basePointsForAnswer(word?.answer || "");
+    const posMult = (word?.state === "falling") ? fallingHeightMultiplier(word.y || 0) : 1.0;
+    const pen = scorePenaltyMultiplier();
+    const ex1Bonus = (isExtraStage1() && word && word.hidePromptWhileFalling) ? 2 : 1;
+    const ex2Bonus = (isExtraStage2() && word && word.ex2Highlighted) ? 2 : 1;
+    return Math.max(1, Math.round(base * posMult * pen * ex1Bonus * ex2Bonus));
+  }
+
+  let wordsOnField = [];
+  
+
+  let restackDirty = false;
+  function showDebugStagePicker(){
+  const prevState = gameState;
+  const wasPlaying = (prevState === "playing");
+
+  if(wasPlaying){
+    pauseStageClock();
+    showStage5Timer(false);
+  }
+
+  gameState = "debugselect";
+  setInputsEnabled(false);
+
+  showOverlay(true);
+  overlay.style.cursor = "default";
+  if(overlayBox) overlayBox.classList.add("debugSmall");
+
+  overlayTitle.textContent = "DEBUG";
+  overlayDesc.textContent = "";
+  overlayHint.textContent = "";
+  countdownText.textContent = "";
+
+  overlayChoices.classList.add("show");
+  overlayChoices.innerHTML = "";
+
+  const grid = document.createElement("div");
+  grid.className = "debugGrid";
+  overlayChoices.appendChild(grid);
+
+  const cleanup = () => {
+    overlayChoices.innerHTML = "";
+    overlayChoices.classList.remove("show");
+    if(overlayBox) overlayBox.classList.remove("debugSmall");
+    overlay.removeEventListener("click", onOverlayClick);
+    window.removeEventListener("keydown", onKeyDown);
+  };
+
+  const exitBack = () => {
+    cleanup();
+    if(wasPlaying){
+      showOverlay(false);
+      gameState = "playing";
+      setInputsEnabled(true);
+      resumeStageClock();
+      updateUI();
+    }else{
+      showModeSelectScreen();
+    }
+  };
+
+  const onOverlayClick = (e) => {
+    if(e.target === overlay) exitBack();
+  };
+
+  const onKeyDown = (e) => {
+    if(e.key === "Escape") exitBack();
+  };
+
+  overlay.addEventListener("click", onOverlayClick);
+  window.addEventListener("keydown", onKeyDown);
+
+  const jumpTo = (mode, idx) => {
+    cleanup();
+    // startStage handles its own overlay / countdown
+    setMode(mode);
+    startStage(idx);
+  };
+
+  const addBtn = (label, mode, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "debugStageBtn";
+    btn.textContent = label;
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      jumpTo(mode, idx);
+    });
+    grid.appendChild(btn);
+  };
+
+  // 9 buttons total: Normal 1-5, Extra 1-4
+  for(let i=0;i<STAGES_NORMAL.length;i++){
+    addBtn(`N${i+1}`, "normal", i);
+  }
+  for(let i=0;i<STAGES_EXTRA.length;i++){
+    addBtn(`EX${i+1}`, "extra", i);
+  }
+}
+
+async function debugJumpTo(mode, idx){
+  cleanupContinueListeners();
+  setMode(mode);
+  resetAllRunScoring();
+
+  // Reset run state (similar to startGame)
+  resetField();
+  hideBossBubble();
+  showStage5Timer(false);
+  setStage5InvBanner(false);
+  stage5InvShown = false;
+
+  stageIndex = idx;
+  mistakes = 0;
+  continuesLeft = MAX_CONTINUES;
+  // Buff select (Normal-only)
+  showOverlay(false);
+  if(currentMode === "normal"){
+    if(!selectedBuff){
+      await showBuffSelect();
+    }
+  }else{
+    resetBuffState();
+  }
+  playerMaxHp = BASE_PLAYER_MAX_HP;
+  playerHp = playerMaxHp;
+  invulnActive = false;
+  invulnUntil = 0;
+
+  resumeStageClock();
+  showOverlay(false);
+  await startStage(idx);
+}
+
+
+  let nextWordId = 1;
+
+  let lastTs = 0;
+
+  // Prevent huge dt spikes after tab/app is backgrounded.
+  document.addEventListener("visibilitychange", () => {
+    if(!document.hidden) lastTs = 0;
+  });
+
+  let overflow = false;
+  let overflowAcc = 0;
+
+  let stagePlayStartMs = 0;
+  let stagePausedTotalMs = 0;
+  let stagePauseStartMs = null;
+
+  let spawnAccMs = 0;
+
+  let spawnCountThisStage = 0;
+  let midFightBubbleShown = false;
+
+  let stage5Phase = 1;
+  let stage5EndedHandled = false;
+  let stage5InvShown = false;
+  let stage5Phase2At = null;
+  let stage5Phase3At = null;
+
+  let bossNormalSrc = "";
+  let bossDamagedSrc = "";
+  let bossDamageTimeout = null;
+  let bossDamagedAvailable = false;
+
+  function setInputsEnabled(enabled){
+    answerInput.disabled = !enabled;
+    if(enabled){
+      answerInput.focus();
+    }else{
+      answerInput.blur();
+      answerInput.value = "";
+    }
+  }
+
+  function renderHpPips(){
+    // PERF: Build pip elements once per max HP, then just toggle the "on" class.
+    if(playerMaxHp !== hpPipMax){
+      hpPipMax = playerMaxHp;
+      hpPipEls = [];
+      hpPipsEl.textContent = "";
+      const frag = document.createDocumentFragment();
+      for(let i=0;i<hpPipMax;i++){
+        const pip = document.createElement("span");
+        pip.className = "pip";
+        hpPipEls.push(pip);
+        frag.appendChild(pip);
+      }
+      hpPipsEl.appendChild(frag);
+    }
+    for(let i=0;i<hpPipEls.length;i++){
+      hpPipEls[i].classList.toggle("on", i < playerHp);
+    }
+  }
+
+  // PERF: UI updates are comparatively expensive. Cache last-rendered values to avoid
+  // rewriting DOM on every animation frame.
+  let hpPipEls = [];
+  let hpPipMax = -1;
+
+  const uiCache = {
+    stageName: null,
+    bossName: null,
+    bossHpStr: null,
+    bossFillW: null,
+    effectiveHit: null,
+    dmgFillW: null,
+    playerHpStr: null,
+    playerFillW: null,
+    mistakes: null,
+    continuesLeft: null,
+    overflow: null,
+    buffStr: null,
+    invStr: null,
+    bossInv: null,
+    scoreMode: null,
+    scoreStr: null,
+    bestScoreStr: null,
+    penaltyStr: null,
+  };
+
+  const UI_TICK_MS = 50; // ~20fps is plenty for text/UI, reduces jank on mobile.
+  let nextUiTickAt = 0;
+  function updateUIThrottled(){
+    const now = nowMs();
+    if(now < nextUiTickAt) return;
+    nextUiTickAt = now + UI_TICK_MS;
+    updateUI();
+  }
+
+function updateUI(){
+    const stage = STAGES[stageIndex] || null;
+
+    const stageName = stage ? stage.stageName : "-";
+    if(stageName !== uiCache.stageName){
+      uiCache.stageName = stageName;
+      stageNameEl.textContent = stageName;
+    }
+
+    const bossName = stage ? stage.bossName : "-";
+    if(bossName !== uiCache.bossName){
+      uiCache.bossName = bossName;
+      bossNameEl.textContent = bossName;
+    }
+
+    // EX4: cover boss HP with eye banner (HP line only)
+    if(ex4EyeBanner){
+      const showEye = (currentMode === "extra" && stageIndex === 3 && gameState === "playing");
+      ex4EyeBanner.style.opacity = showEye ? "1" : "0";
+    }
+
+    const bossHpStr = `${bossHp}/${bossMaxHp}`;
+    if(bossHpStr !== uiCache.bossHpStr){
+      uiCache.bossHpStr = bossHpStr;
+      bossHpText.textContent = bossHpStr;
+    }
+
+    const effectiveHit = baseHitDamage * bossDamageMult;
+    if(effectiveHit !== uiCache.effectiveHit){
+      uiCache.effectiveHit = effectiveHit;
+      hitDamageText.textContent = String(effectiveHit);
+      const dmgW = `${(clamp(effectiveHit/5,0,1) * 100).toFixed(1)}%`;
+      if(dmgW !== uiCache.dmgFillW){
+        uiCache.dmgFillW = dmgW;
+        dmgFill.style.width = dmgW;
+      }
+    }
+
+    const bossW = `${((bossMaxHp ? clamp(bossHp/bossMaxHp,0,1) : 0) * 100).toFixed(1)}%`;
+    if(bossW !== uiCache.bossFillW){
+      uiCache.bossFillW = bossW;
+      bossFill.style.width = bossW;
+    }
+
+    const playerHpStr = `${playerHp}/${playerMaxHp}`;
+    if(playerHpStr !== uiCache.playerHpStr){
+      uiCache.playerHpStr = playerHpStr;
+      playerHpText.textContent = playerHpStr;
+    }
+
+    const playerW = `${(clamp(playerHp/playerMaxHp,0,1) * 100).toFixed(1)}%`;
+    if(playerW !== uiCache.playerFillW){
+      uiCache.playerFillW = playerW;
+      playerFill.style.width = playerW;
+    }
+
+    if(mistakes !== uiCache.mistakes){
+      uiCache.mistakes = mistakes;
+      mistakesText.textContent = String(mistakes);
+    }
+    if(continuesLeft !== uiCache.continuesLeft){
+      uiCache.continuesLeft = continuesLeft;
+      continuesText.textContent = String(continuesLeft);
+    }
+
+    if(overflow !== uiCache.overflow){
+      uiCache.overflow = overflow;
+      overflowBadge.classList.toggle("show", overflow);
+    }
+
+    const buffStr = buffLabel();
+    if(buffStr !== uiCache.buffStr){
+      uiCache.buffStr = buffStr;
+      buffText.textContent = buffStr;
+    }
+
+    const invStr = invulnActive ? "ON" : (selectedBuff === "buff3" && invulnUsed ? "USED" : "OFF");
+    if(invStr !== uiCache.invStr){
+      uiCache.invStr = invStr;
+      invulnText.textContent = invStr;
+    }
+
+    const bossInv = !!(stage && stage.bossInvulnerable);
+    if(bossInv !== uiCache.bossInv){
+      uiCache.bossInv = bossInv;
+      if(bossMeter) bossMeter.classList.toggle("invuln", bossInv);
+    }
+
+    // ---- Score UI ----
+    const modeLabel = (currentMode === "extra") ? "Extra" : "Normal";
+    if(scoreModeLabel && modeLabel !== uiCache.scoreMode){
+      uiCache.scoreMode = modeLabel;
+      scoreModeLabel.textContent = modeLabel;
+    }
+
+    const scoreStr = String(getActiveScore());
+    if(scoreText && scoreStr !== uiCache.scoreStr){
+      uiCache.scoreStr = scoreStr;
+      scoreText.textContent = scoreStr;
+    }
+
+    const bestStr = String(getActiveHiScore());
+    if(bestScoreText && bestStr !== uiCache.bestScoreStr){
+      uiCache.bestScoreStr = bestStr;
+      bestScoreText.textContent = bestStr;
+    }
+
+    const penStr = (continuesUsedThisRun > 0) ? ` / Penalty ×${scorePenaltyMultiplier().toFixed(2)}` : "";
+    if(scorePenaltyText && penStr !== uiCache.penaltyStr){
+      uiCache.penaltyStr = penStr;
+      scorePenaltyText.textContent = penStr;
+    }
+
+    renderHpPips();
+  }
+
+  function flashPlayerDamage(){
+    damageFlash.classList.remove("show");
+    void damageFlash.offsetWidth;
+    damageFlash.classList.add("show");
+  }
+
+  function resetField(){
+    for(const w of wordsOnField) w.el.remove();
+    wordsOnField = [];
+    overflow = false;
+    overflowAcc = 0;
+  }
+  function laneHeight(){ return wordLane.clientHeight; }
+  function laneCapacity(){ return Math.floor(laneHeight() / 30); }
+  function landedWords(){ return wordsOnField.filter(w => w.state === "landed"); }
+
+  // PERF: Use a CSS variable + translate3d to move words without triggering layout.
+  function setWordY(el, y){
+    el.style.setProperty("--y", `${y}px`);
+  }
+
+
+  function restackLanded(){
+    const h = laneHeight();
+    const landed = landedWords().sort((a,b)=> b.y - a.y);
+    for(let i=0;i<landed.length;i++){
+      const y = h - 30 * (i+1);
+      landed[i].y = y;
+      setWordY(landed[i].el, y);
+    }
+    // NOTE: overflow + UI are handled in tick() for consistency/perf
+  }
+
+  function pickStageWord(){
+    const stage = STAGES[stageIndex];
+
+    const w = stage.words[Math.floor(Math.random() * stage.words.length)];
+    return { prompt: w.prompt, answer: w.answer };
+  }
+
+
+  // ---- Extra Stage 1 mechanic: unreadable prompt while falling ----
+  function isExtraStage1(){
+    return currentMode === "extra" && stageIndex === 0;
+  }
+  function ex1UnreadableFrequency(){
+    if(!isExtraStage1()) return 0;
+    // "boss hp drops below half" => strictly below half
+    return (bossHp < (bossMaxHp / 2)) ? 2 : 4;
+  }
+  function makeUnreadablePrompt(original){
+    const n = Math.max(3, Math.min(12, Array.from(String(original || "")).length));
+    return "■".repeat(n);
+  }
+
+
+  function makeUnreadableAnswer(original){
+    // Keep it unreadable, but compact so long JP prompts don\'t get squeezed.
+    return "■".repeat(3);
+  }
+
+
+  // ---- Extra Stage 2 mechanic: timer + highlight + scramble ----
+  function isExtraStage2(){
+    return currentMode === "extra" && stageIndex === 1;
+  }
+  function ex2HighlightFrequency(){
+    if(!isExtraStage2()) return 0;
+    // "boss hp drops below half" => strictly below half
+    return (bossHp < (bossMaxHp / 2)) ? 2 : 3;
+  }
+  function ex2CycleSeconds(){
+    if(!isExtraStage2()) return 0;
+    return (bossHp < (bossMaxHp / 2)) ? 4 : 5;
+  }
+
+  // ---- Extra Stage 3 mechanic: variable fall speed + ignore collision while falling ----
+  function isExtraStage3(){
+    return currentMode === "extra" && stageIndex === 2;
+  }
+  function ex3SpecialFrequency(){
+    if(!isExtraStage3()) return 0;
+    // "boss hp drops below half" => strictly below half
+    return (bossHp < (bossMaxHp / 2)) ? 1 : 2;
+  }
+  function ex3RandRange(a, b){
+    return a + (b - a) * Math.random();
+  }
+  function ex3RandomFallMult(){
+    // Either noticeably slower or faster.
+    return (Math.random() < 0.5) ? ex3RandRange(0.55, 0.85) : ex3RandRange(1.25, 1.75);
+  }
+
+
+  let ex2Active = false;
+  let ex2NextShuffleAtMs = 0;
+  let ex2CycleSec = 0;
+
+  function showEx2Timer(show){
+    if(!ex2Timer) return;
+    ex2Timer.classList.toggle("show", !!show);
+  }
+
+  function stopEx2Mechanic(){
+    ex2Active = false;
+    ex2NextShuffleAtMs = 0;
+    ex2CycleSec = 0;
+    showEx2Timer(false);
+  }
+
+  function startEx2Mechanic(){
+    if(!(gameState === "playing" && isExtraStage2())){
+      stopEx2Mechanic();
+      return;
+    }
+    ex2Active = true;
+    ex2CycleSec = ex2CycleSeconds() || 5;
+    ex2NextShuffleAtMs = nowMs() + ex2CycleSec * 1000;
+    showEx2Timer(true);
+    updateEx2Mechanic();
+  }
+
+  function pickRandomDifferent(stage, curPrompt, curAnswer){
+    const arr = stage?.words || [];
+    if(arr.length === 0) return { prompt: curPrompt, answer: curAnswer };
+
+    let choice = null;
+    for(let i=0;i<12;i++){
+      const w = arr[Math.floor(Math.random() * arr.length)];
+      if((w.prompt !== curPrompt) || (w.answer !== curAnswer)){
+        choice = w;
+        break;
+      }
+    }
+    if(!choice) choice = arr[Math.floor(Math.random() * arr.length)];
+    return { prompt: choice.prompt, answer: choice.answer };
+  }
+
+  function ex2ShuffleHighlightedWords(){
+    if(!isExtraStage2()) return;
+    const stage = STAGES[stageIndex];
+    const targets = wordsOnField.filter(w => w && w.ex2Highlighted);
+    if(targets.length === 0) return;
+
+    for(const w of targets){
+      const nw = pickRandomDifferent(stage, w.prompt, w.answer);
+      w.prompt = nw.prompt;
+      w.answer = nw.answer;
+      w.answerNorm = normalizeAnswer(w.answer);
+
+      if(w.promptEl){
+        w.promptEl.textContent = w.prompt;
+      }
+      const aEl = w.answerEl || (w.el ? w.el.querySelector(".answer") : null);
+      if(aEl){
+        aEl.textContent = w.hidePromptWhileFalling ? makeUnreadableAnswer(w.answer) : w.answer;
+      }
+    }
+  }
+
+    let ex2TimerLastText = "";
+
+  function updateEx2Mechanic(){
+    if(!(gameState === "playing" && isExtraStage2() && ex2Active)){
+      showEx2Timer(false);
+      return;
+    }
+
+    // Ensure the timer is visible again after pauses/continues
+    showEx2Timer(true);
+
+    const now = nowMs();
+    const desired = ex2CycleSeconds() || 5;
+
+    // If we switched into the "below half HP" mode mid-cycle, shorten the remaining time if needed
+    if(desired !== ex2CycleSec){
+      const remaining = (ex2NextShuffleAtMs - now) / 1000;
+      if(remaining > desired){
+        ex2NextShuffleAtMs = now + desired * 1000;
+      }
+      ex2CycleSec = desired;
+    }
+
+    const left = Math.max(0, (ex2NextShuffleAtMs - now) / 1000);
+    if(ex2Timer){
+      const txt = `変化まで ${Math.ceil(left)}秒`;
+      if(txt !== ex2TimerLastText){
+        ex2TimerLastText = txt;
+        ex2Timer.textContent = txt;
+      }
+    }
+
+    if(now >= ex2NextShuffleAtMs){
+      ex2ShuffleHighlightedWords();
+      ex2CycleSec = ex2CycleSeconds() || desired || 5;
+      ex2NextShuffleAtMs = nowMs() + ex2CycleSec * 1000;
+    }
+  }
+
+  // ---- Extra Stage 4 mechanic: survive phases until BGM ends ----
+  function isExtraStage4(){
+    return currentMode === "extra" && stageIndex === 3;
+  }
+
+  let ex4Phase = 0; // 1..5
+  let ex4SpawnEnabled = false;
+
+  // Shuffle queue: every 2 doubles/triples, shuffle those words after 5 seconds
+  let ex4BatchIds = [];
+  let ex4ShuffleQueue = []; // {atMs:number, ids:number[]}
+
+  // EX4 constants (seconds from stage start)
+  const EX4_T_PHASE2 = 25;
+  const EX4_T_PHASE3 = 71;
+  const EX4_T_PHASE4 = 134;
+  const EX4_T_PHASE5 = 157;
+
+  let nextGroupId = 1;
+
+  function showEx4Timer(show){
+    if(!ex4Timer) return;
+    ex4Timer.classList.toggle("show", !!show);
+  }
+
+  function ex4GroupSize(){
+    if(!isExtraStage4()) return 1;
+    if(ex4Phase === 2 || ex4Phase === 3) return 2;
+    if(ex4Phase === 5) return 3;
+    return 1;
+  }
+
+  function ex4ClearShuffleState(){
+    ex4BatchIds = [];
+    ex4ShuffleQueue = [];
+  }
+
+  function ex4QueueShuffleIfReady(){
+    const need = (ex4Phase === 3) ? 4 : (ex4Phase === 5 ? 6 : 0);
+    if(!need) return;
+
+    while(ex4BatchIds.length >= need){
+      const ids = ex4BatchIds.splice(0, need);
+      ex4ShuffleQueue.push({ atMs: nowMs() + 5000, ids });
+    }
+  }
+
+  function ex4DoShuffle(ids){
+    for(const id of ids){
+      const w = wordsOnField.find(x => x.id === id);
+      if(!w) continue;
+      // pick a different word if possible
+      const before = `${w.prompt}||${w.answer}`;
+      let picked = null;
+      for(let tries=0; tries<8; tries++){
+        const cand = pickStageWord();
+        if(!cand) continue;
+        const after = `${cand.prompt}||${cand.answer}`;
+        if(after !== before){
+          picked = cand;
+          break;
+        }
+      }
+      if(!picked) picked = pickStageWord();
+      if(!picked) continue;
+
+      w.prompt = picked.prompt;
+      w.answer = picked.answer;
+      w.answerNorm = normalizeAnswer(w.answer);
+
+      const pEl = w.promptEl || w.el.querySelector(".prompt");
+      if(pEl) pEl.textContent = w.prompt;
+
+      // IMPORTANT: update the visible English too, otherwise players will type what they see
+      // and the internal answer may have already changed (EX4 shuffle phases).
+      const aEl = w.answerEl || w.el.querySelector(".answer");
+      if(aEl){
+        aEl.textContent = w.hidePromptWhileFalling ? makeUnreadableAnswer(w.answer) : w.answer;
+      }
+    }
+  }
+
+  function ex4UpdateShuffleQueue(){
+    if(!isExtraStage4()) return;
+    if(!(gameState === "playing")) return;
+    const now = nowMs();
+    for(let i=ex4ShuffleQueue.length - 1; i>=0; i--){
+      const ev = ex4ShuffleQueue[i];
+      if(now >= ev.atMs){
+        ex4DoShuffle(ev.ids);
+        ex4ShuffleQueue.splice(i, 1);
+      }
+    }
+  }
+
+    let ex4TimerLastText = "";
+
+  function updateEx4Timer(){
+    if(!(gameState === "playing" && isExtraStage4())){
+      showEx4Timer(false);
+      return;
+    }
+    showEx4Timer(true);
+
+    let txt = "残り --:--";
+    if(Number.isFinite(bgm.duration) && bgm.duration > 0){
+      const ct = (Number.isFinite(bgm.currentTime) ? bgm.currentTime : 0);
+      const remain = Math.max(0, bgm.duration - ct);
+      txt = `残り ${formatTime(remain)}`;
+    }
+    if(txt !== ex4TimerLastText){
+      ex4TimerLastText = txt;
+      ex4Timer.textContent = txt;
+    }
+  }
+
+    function ex4Prestack(n){
+      const h = laneHeight();
+  
+      // Extra Stage 4 Phase 1: randomly obscure 3 of the pre-stacked English answers
+      const obscureCount = (isExtraStage4() && ex4Phase === 1) ? Math.min(3, n) : 0;
+      const obscureSet = new Set();
+      while(obscureSet.size < obscureCount){
+        obscureSet.add(Math.floor(Math.random() * n));
+      }
+  
+      for(let i=0;i<n;i++){
+        const cand = pickStageWord();
+        if(!cand) continue;
+  
+        const shouldObscure = obscureSet.has(i);
+        const shownAnswer = shouldObscure ? makeUnreadableAnswer(cand.answer) : cand.answer;
+  
+        const el = document.createElement("div");
+        el.className = "word landed" + (shouldObscure ? " obscured" : "");
+        el.innerHTML = `<div class="prompt">${escapeHtml(cand.prompt)}</div>
+          <div class="right">
+            <span class="tag"></span>
+            <span class="answer muted">${escapeHtml(shownAnswer)}</span>
+          </div>`;
+        wordLane.appendChild(el);
+  
+        const y = h - 30 * (i + 1);
+        const obj = {
+          id: nextWordId++,
+          prompt: cand.prompt,
+          answer: cand.answer,
+          answerNorm: normalizeAnswer(cand.answer),
+          y,
+          state: "landed",
+          el,
+          promptEl: el.querySelector(".prompt"),
+          answerEl: el.querySelector(".answer"),
+          tagEl: el.querySelector(".tag"),
+          hidePromptWhileFalling: shouldObscure, // keep obscured even while landed
+          ex2Highlighted: false,
+          fallMult: 1,
+          ex3Ghost: false,
+        };
+        setWordY(el, y);
+        wordsOnField.push(obj);
+      }
+      restackLanded();
+    }
+
+  function ex4ShowFakeDeath(show){
+    if(!show){
+      showOverlay(false);
+      return;
+    }
+    // Fake death overlay that doesn't clear
+    setOverlayText("GIVE UP", "", "");
+    overlay.style.cursor = "default";
+    showOverlay(true);
+  }
+
+  const ex4Laugh = new Audio();
+  ex4Laugh.preload = "auto";
+
+  // EX4 Phase 4: reset scare image overlay (sync to ex4 laugh BGM duration)
+  let ex4ResetAnim = null;
+
+  function ex4PrepareLaugh(){
+    const stage = STAGES[stageIndex];
+    const src = stage?.ex4LaughBgm || "";
+    if(!src) return;
+    if(ex4Laugh.src !== src){
+      ex4Laugh.src = src;
+    }
+    try{ ex4Laugh.load(); }catch(_){}
+  }
+
+  function ex4WaitLaughDurationMs(timeoutMs = 300){
+    return new Promise((resolve) => {
+      const d0 = ex4Laugh.duration;
+      if(Number.isFinite(d0) && d0 > 0){
+        resolve(Math.round(d0 * 1000));
+        return;
+      }
+
+      let done = false;
+      const finish = (ms) => {
+        if(done) return;
+        done = true;
+        ex4Laugh.removeEventListener("loadedmetadata", onMeta);
+        ex4Laugh.removeEventListener("durationchange", onMeta);
+        resolve(ms);
+      };
+
+      const onMeta = () => {
+        const d = ex4Laugh.duration;
+        finish((Number.isFinite(d) && d > 0) ? Math.round(d * 1000) : 2500);
+      };
+
+      ex4Laugh.addEventListener("loadedmetadata", onMeta, { once:true });
+      ex4Laugh.addEventListener("durationchange", onMeta, { once:true });
+      setTimeout(() => finish(2500), timeoutMs);
+    });
+  }
+
+  function ex4StopResetScare(fast = false){
+    if(!ex4ResetScare) return;
+
+    if(ex4ResetAnim){
+      try{ ex4ResetAnim.cancel(); }catch(_){}
+      ex4ResetAnim = null;
+    }
+
+    if(fast){
+      // Requirement: fade out immediately when entering phase 5
+      ex4ResetScare.style.transition = "none";
+      ex4ResetScare.style.opacity = "0";
+      return;
+    }
+
+    ex4ResetScare.style.opacity = "0";
+  }
+
+  async function ex4PlayResetScare(){
+    if(!ex4ResetScare) return;
+
+    // Ensure metadata is available so the fade matches the laugh BGM duration
+    ex4PrepareLaugh();
+    playEx4Laugh();
+
+    const durationMs = await ex4WaitLaughDurationMs(350);
+
+    // Restart animation from 0 every time
+    ex4StopResetScare(false);
+    ex4ResetScare.style.transition = "none";
+    ex4ResetScare.style.opacity = "0";
+    void ex4ResetScare.offsetWidth;
+
+    ex4ResetAnim = ex4ResetScare.animate(
+      [{opacity:0},{opacity:0.8, offset:0.5},{opacity:0}],
+      {duration: Math.max(300, durationMs), easing:"linear", fill:"forwards"}
+    );
+    ex4ResetAnim.onfinish = () => {
+      ex4ResetAnim = null;
+      ex4ResetScare.style.opacity = "0";
+    };
+  }
+
+  function playEx4Laugh(){
+    const stage = STAGES[stageIndex];
+    const src = stage?.ex4LaughBgm || "";
+    if(!src) return;
+    if(isMuted) return;
+
+    try{
+      ex4Laugh.pause();
+      ex4Laugh.currentTime = 0;
+    }catch(_){}
+
+    ex4Laugh.src = src;
+    ex4Laugh.loop = false;
+    ex4Laugh.volume = clamp(lastVol * 2.5, 0, 1); // 2.5x louder for EX4 laugh BGM
+
+    ex4Laugh.play().catch(()=>{});
+  }
+
+  function ex4HandlePhaseEnter(newPhase){
+    ex4Phase = newPhase;
+
+    // EX4: swap boss art by phase group (1–2 / 3–4 / 5)
+    const ex4Stage = STAGES[stageIndex];
+    if(ex4Stage && isExtraStage4()){
+      const desiredVariant = (ex4Phase === 5) ? 3 : (ex4Phase >= 3 ? 2 : 1);
+      if(bossVariantPhase !== desiredVariant){
+        bossVariantPhase = desiredVariant;
+        // async swap; no need to await
+        setBossVariant(ex4Stage, desiredVariant);
+      }
+    }
+
+    // Always reset shuffle batch when switching phases
+    ex4ClearShuffleState();
+
+    if(ex4Phase === 1){
+      // Phase 1: start with 5 words already stacked; no spawns
+      ex4SpawnEnabled = false;
+      showOverlay(false);
+      setInputsEnabled(true);
+      resetField();
+      ex4Prestack(5);
+      spawnAccMs = 0;
+      return;
+    }
+
+    if(ex4Phase === 2){
+      ex4SpawnEnabled = true;
+      showOverlay(false);
+      setInputsEnabled(true);
+      spawnAccMs = 0;
+      return;
+    }
+
+    if(ex4Phase === 3){
+      ex4SpawnEnabled = true;
+      showOverlay(false);
+      setInputsEnabled(true);
+      spawnAccMs = 0;
+      showBossBubble("I\'ll show you crazy!", 5000);
+      return;
+    }
+
+    if(ex4Phase === 4){
+      // Clear stack + stop spawns + fake death overlay
+      ex4SpawnEnabled = false;
+      resetField();
+      spawnAccMs = 0;
+      setInputsEnabled(false);
+      ex4PrepareLaugh();
+      ex4ShowFakeDeath(true);
+      return;
+    }
+
+    if(ex4Phase === 5){
+      // Resume play, remove fake death prompts
+      ex4SpawnEnabled = true;
+      // If the reset scare image is showing, fade it out immediately on Phase 5
+      ex4StopResetScare(true);
+      showOverlay(false);
+      setInputsEnabled(true);
+      spawnAccMs = 0;
+      showBossBubble("Let\'s end this!", 5000);
+      return;
+    }
+  }
+
+  function ex4HandlePhaseTriggers(elapsedSec){
+    if(!(gameState === "playing" && isExtraStage4())) return;
+
+    let target = 1;
+    if(elapsedSec >= EX4_T_PHASE5) target = 5;
+    else if(elapsedSec >= EX4_T_PHASE4) target = 4;
+    else if(elapsedSec >= EX4_T_PHASE3) target = 3;
+    else if(elapsedSec >= EX4_T_PHASE2) target = 2;
+
+    if(target !== ex4Phase){
+      ex4HandlePhaseEnter(target);
+    }
+  }
+
+  function ex4OnGroupSpawn(ids){
+    if(!(isExtraStage4() && (ex4Phase === 3 || ex4Phase === 5))) return;
+    ex4BatchIds.push(...ids);
+    ex4QueueShuffleIfReady();
+  }
+
+  function updateEx4Mechanic(){
+    updateEx4Timer();
+    ex4UpdateShuffleQueue();
+
+    // Keep EX4 overlay text correct if blocked reset got triggered
+    if(gameState === "playing" && isExtraStage4() && ex4Phase === 4){
+      // ensure overlay stays on
+      showOverlay(true);
+      overlayTitle.textContent = "GIVE UP";
+    }
+  }
+
+
+  function spawnOneWord(opts = {}){
+    if(gameState !== "playing") return null;
+
+    const state = opts.state || "falling";
+
+    const stagePick = (opts.prompt != null && opts.answer != null)
+      ? {prompt: opts.prompt, answer: opts.answer}
+      : pickStageWord();
+
+    if(!stagePick) return null;
+    const {prompt, answer} = stagePick;
+
+    const countSpawn = (opts.countSpawn !== false);
+    if(countSpawn && state === "falling") spawnCountThisStage++;
+
+    // Extra Stage 1: every N words (4 -> 2 after boss HP drops below half), hide JP prompt while falling
+    const ex1Freq = ex1UnreadableFrequency();
+    const hidePromptWhileFalling = (state === "falling" && ex1Freq > 0 && (spawnCountThisStage % ex1Freq === 0));
+
+    // Extra Stage 2: every Nth word highlighted (3 -> 2 after boss HP drops below half)
+    const ex2Freq = ex2HighlightFrequency();
+    const ex2Highlighted = (state === "falling" && ex2Freq > 0 && (spawnCountThisStage % ex2Freq === 0));
+
+    // Extra Stage 3: every Nth word gets a random fall speed and ignores collision while falling
+    const ex3Freq = ex3SpecialFrequency();
+    const ex3Special = (state === "falling" && ex3Freq > 0 && (spawnCountThisStage % ex3Freq === 0));
+    const ex3FallMult = ex3Special ? ex3RandomFallMult() : 1;
+
+    const el = document.createElement("div");
+    el.className = "word"
+            + (hidePromptWhileFalling ? " obscured" : "")
+      + (ex2Highlighted ? " ex2Target" : "");
+
+    const shownPrompt = prompt;
+    const shownAnswer = hidePromptWhileFalling ? makeUnreadableAnswer(answer) : answer;
+    el.innerHTML = `<div class="prompt">${escapeHtml(shownPrompt)}</div>
+      <div class="right">
+        <span class="tag"></span>
+        <span class="answer muted">${escapeHtml(shownAnswer)}</span>
+      </div>`;
+    wordLane.appendChild(el);
+
+    const y = (opts.y != null) ? opts.y : -30;
+
+    const obj = {
+      id: nextWordId++,
+      prompt,
+      answer,
+      answerNorm: normalizeAnswer(answer),
+      y,
+      state,
+      el,
+      promptEl: el.querySelector(".prompt"),
+      answerEl: el.querySelector(".answer"),
+      tagEl: el.querySelector(".tag"),
+      hidePromptWhileFalling,
+      ex2Highlighted,
+      fallMult: ex3FallMult,
+      ex3Ghost: ex3Special,
+      groupId: opts.groupId || 0,
+      groupIndex: opts.groupIndex || 0,
+      spawnBaseCount: (Number.isFinite(opts.spawnBaseCount) ? opts.spawnBaseCount : undefined),
+    };
+
+    if(state === "landed"){
+      obj.hidePromptWhileFalling = false;
+      obj.ex3Ghost = false;
+      obj.ex2Highlighted = false;
+      el.classList.add("landed");
+      // ensure prompt is readable
+      const pEl = obj.promptEl || el.querySelector(".prompt");
+      if(pEl) pEl.textContent = obj.prompt;
+      const tEl = obj.tagEl || el.querySelector(".tag");
+      if(tEl) tEl.textContent = "";
+    }
+
+    setWordY(el, obj.y);
+    wordsOnField.push(obj);
+    return obj;
+  }
+
+  function spawnWordGroup(size){
+    if(gameState !== "playing") return;
+    const gid = nextGroupId++;
+
+    // include current falling words (non-ghost) so groups don't overlap them
+    const baseCount = wordsOnField.filter(w => (w.state === "landed") || (w.state === "falling" && !w.ex3Ghost)).length;
+
+    const ids = [];
+    for(let i=0;i<size;i++){
+      const obj = spawnOneWord({
+        state: "falling",
+        y: -30 - 30 * i,
+        groupId: gid,
+        groupIndex: i,
+        spawnBaseCount: baseCount,
+      });
+      if(obj) ids.push(obj.id);
+    }
+    ex4OnGroupSpawn(ids);
+  }
+
+  function spawnWord(){
+    if(gameState !== "playing") return;
+
+    // Extra Stage 4: phase-based spawning (none / doubles / triples)
+    if(isExtraStage4()){
+      if(!ex4SpawnEnabled) return;
+      const size = ex4GroupSize();
+      if(size > 1){
+        spawnWordGroup(size);
+      }else{
+        spawnOneWord();
+      }
+      return;
+    }
+
+    // Default: single word
+    spawnOneWord();
+  }
+
+  function normalizeAnswer(s){
+    // Normalize input/answers to reduce "correct but marked wrong" edge cases
+    // (mobile punctuation, full-width characters, zero-width spaces, etc.)
+    return String(s)
+      .normalize("NFKC")
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[.,!?;:]+$/g, "");
+  }
+
+  function removeWord(id){
+    const idx = wordsOnField.findIndex(w => w.id === id);
+    if(idx === -1) return;
+    wordsOnField[idx].el.remove();
+    wordsOnField.splice(idx,1);
+    restackDirty = true; // defer restack to next frame for performance
+  }
+
+  function preloadImage(src){
+    return new Promise((resolve) => {
+      if(!src){ resolve(false); return; }
+      const im = new Image();
+      im.onload = () => resolve(true);
+      im.onerror = () => resolve(false);
+      im.src = src;
+    });
+  }
+
+  async function setBossVariant(stage, phase){
+    let normal = stage.bossFile || "";
+    let damaged = stage.bossDamagedFile || "";
+
+    if(phase === 2){
+      normal = stage.bossFile2 || stage.bossFile || "";
+      damaged = stage.bossDamagedFile2 || stage.bossDamagedFile || "";
+    }else if(phase === 3){
+      normal = stage.bossFile3 || stage.bossFile2 || stage.bossFile || "";
+      damaged = stage.bossDamagedFile3 || stage.bossDamagedFile2 || stage.bossDamagedFile || "";
+    }
+
+    bossNormalSrc = normal;
+    bossDamagedSrc = damaged;
+
+    bossDamagedAvailable = await preloadImage(bossDamagedSrc);
+
+    bossImg.style.display = "none";
+    bossFallback.style.display = "grid";
+    bossFallback.innerHTML =
+      `${escapeHtml(stage.bossName || "Stage Boss")}<br>` +
+      `<span style="color:var(--muted); font-weight:700; font-size:12px;">(${escapeHtml(normal || "boss.png")} を置く)</span>` +
+      `<br><span style="color:var(--muted); font-size:11px;">(同じフォルダ / GitHub Pages は大文字小文字を区別)</span>`;
+
+    if(bossDamageTimeout){ clearTimeout(bossDamageTimeout); bossDamageTimeout = null; }
+
+    bossImg.onload = () => { bossImg.style.display = "block"; bossFallback.style.display = "none"; };
+    bossImg.onerror = () => { bossImg.style.display = "none"; bossFallback.style.display = "grid"; };
+
+    bossImg.src = bossNormalSrc || "";
+  }
+
+  function showBossDamagedBriefly(){
+    if(bossImg.style.display !== "block") return;
+
+    if(bossDamagedAvailable && bossDamagedSrc){
+      bossImg.src = bossDamagedSrc;
+      if(bossDamageTimeout) clearTimeout(bossDamageTimeout);
+      bossDamageTimeout = setTimeout(() => { bossImg.src = bossNormalSrc; }, 140);
+    }else{
+      bossImg.classList.remove("bossFlash");
+      void bossImg.offsetWidth;
+      bossImg.classList.add("bossFlash");
+    }
+  }
+
+  async function setStageArt(stage){
+    bgImg.style.display = "none";
+    bgFallback.style.display = "block";
+    bgImg.onload = () => { bgImg.style.display = "block"; bgFallback.style.display = "none"; };
+    bgImg.onerror = () => { bgImg.style.display = "none"; bgFallback.style.display = "block"; };
+    bgImg.src = stage.bgFile || "";
+
+    await setBossVariant(stage, 1);
+  }
+
+  function nowMs(){ return performance.now(); }
+
+  function stageElapsedSec(){
+    if(!stagePlayStartMs) return 0;
+    const base = nowMs() - stagePlayStartMs;
+    const pausedSoFar = stagePausedTotalMs + (stagePauseStartMs ? (nowMs() - stagePauseStartMs) : 0);
+    return Math.max(0, (base - pausedSoFar) / 1000);
+  }
+
+  function stage5DurationSec(){
+    return (Number.isFinite(bgm.duration) && bgm.duration > 0) ? bgm.duration : null;
+  }
+
+  function stage5CurrentFallSpeed(elapsed){
+    const s1 = STAGES[0].fallSpeedPxPerSec;
+    const s2 = STAGES[1].fallSpeedPxPerSec;
+    const s3 = STAGES[2].fallSpeedPxPerSec;
+    const s5 = STAGES[4].fallSpeedPxPerSec;
+
+    const t2 = stage5Phase2At ?? Infinity;
+    const t3 = stage5Phase3At ?? Infinity;
+
+    if(elapsed < t2) return s1;
+    if(elapsed < t3) return s2;
+
+    const dur = stage5DurationSec();
+    if(dur != null){
+      const last5 = Math.max(t3, dur - 5);
+      if(elapsed >= dur - 5){
+        return s5 * 20;
+      }
+      const denom = Math.max(0.001, last5 - t3);
+      const p = clamp((elapsed - t3) / denom, 0, 1);
+      return s3 + (s5 - s3) * p;
+    }
+
+    const p = clamp((elapsed - t3) / 20, 0, 1);
+    return s3 + (s5 - s3) * p;
+  }
+
+  function stage5CurrentSpawnMs(elapsed){
+    const a1 = STAGES[0].spawnEveryMs;
+    const a2 = STAGES[1].spawnEveryMs;
+    const a3 = STAGES[2].spawnEveryMs;
+    const a5 = STAGES[4].spawnEveryMs;
+
+    const t2 = stage5Phase2At ?? Infinity;
+    const t3 = stage5Phase3At ?? Infinity;
+
+    if(elapsed < t2) return a1;
+    if(elapsed < t3) return a2;
+
+    const dur = stage5DurationSec();
+    if(dur != null){
+      const last5 = Math.max(t3, dur - 5);
+      const denom = Math.max(0.001, last5 - t3);
+      const p = clamp((elapsed - t3) / denom, 0, 1);
+      return Math.round(a3 + (a5 - a3) * p);
+    }
+
+    const p = clamp((elapsed - t3) / 20, 0, 1);
+    return Math.round(a3 + (a5 - a3) * p);
+  }
+
+  async function stage5SetPhase(targetPhase){
+    const stage = STAGES[4];
+    if(stageIndex !== 4) return;
+    if(targetPhase <= stage5Phase) return;
+
+    for(let p = stage5Phase + 1; p <= targetPhase; p++){
+      stage5Phase = p;
+
+      const e = stageElapsedSec();
+      if(p === 2 && stage5Phase2At == null) stage5Phase2At = e;
+      if(p === 3 && stage5Phase3At == null) stage5Phase3At = e;
+
+      if(stage5Phase >= 2){
+        showStage5Timer(true);
+        updateStage5Timer();
+      }
+
+      await setBossVariant(stage, p);
+
+      if(p === 2) showBossBubble("私に勝てると思っているのか？", 5000);
+      if(p === 3) showBossBubble("我を恐れよ！", 5000);
+    }
+    updateUI();
+  }
+
+  function handleStage5PhaseTriggers(){
+    if(stageIndex !== 4 || gameState !== "playing") return;
+
+    const elapsed = stageElapsedSec();
+
+    if(stage5Phase < 2 && (bossHp <= 0 || elapsed >= 16)){
+      stage5SetPhase(2);
+    }
+
+    if(stage5Phase < 3 && Number.isFinite(bgm.duration) && bgm.duration > 0){
+      if(bgm.currentTime >= (bgm.duration / 2)){
+        stage5SetPhase(3);
+      }
+    }
+  }
+
+  async function stage5WinByBgmEnd(){
+    if(stage5EndedHandled) return;
+    stage5EndedHandled = true;
+
+    setInputsEnabled(false);
+    hideBossBubble();
+    showStage5Timer(false);
+
+    const stage = STAGES[stageIndex];
+    await showStageClearScreen(stage);
+    onVictory();
+  }
+
+  bgm.addEventListener("ended", () => {
+    if(gameState !== "playing") return;
+
+    const stage = STAGES[stageIndex];
+
+    // Stage 5 (Normal): win by BGM end
+    if(stageIndex === 4){
+      stage5WinByBgmEnd();
+      return;
+    }
+
+    // EX Stage 4: win by BGM end
+    if(stage && stage.endStageOnBgmEnd){
+      (async () => {
+        if(gameState !== "playing") return;
+        setInputsEnabled(false);
+        hideBossBubble();
+        showStage5Timer(false);
+        showEx4Timer(false);
+
+        await showStageClearScreen(stage);
+        onVictory();
+      })();
+    }
+  });
+
+  function findMatchAndClear(input){
+    const norm = normalizeAnswer(input);
+    if(!norm) return false;
+
+    let best = null;
+    for(const w of wordsOnField){
+      if(!w) continue;
+      // answerNorm is cached on spawn/shuffle for speed + reliability
+      if((w.answerNorm || normalizeAnswer(w.answer)) !== norm) continue;
+      if(!best || w.y > best.y) best = w; // choose the lowest matching word
+    }
+    if(!best) return false;
+
+    const pts = calcWordScore(best);
+    addScore(pts);
+
+    removeWord(best.id);
+
+    const dmg = baseHitDamage * bossDamageMult;
+    damageBoss(dmg);
+
+    pushMsg(`HIT! 「${best.prompt}」→ ${best.answer} (+${pts})`);
+
+    // Boss can be invulnerable (EX4), so ensure score UI updates even if no HP changes.
+    if(dmg <= 0) updateUI();
+    return true;
+  }
+
+  function damageBoss(amount){
+    if(amount <= 0) return;
+
+    showBossDamagedBriefly();
+    playBossHitSfx();
+
+    bossHp = Math.max(0, bossHp - amount);
+
+    const stage = STAGES[stageIndex];
+
+    // Extra stages 1–3: swap boss art when HP drops strictly below half
+    if(currentMode === "extra" && (stageIndex >= 0 && stageIndex <= 2) &&
+       bossVariantPhase === 1 && bossHp > 0 && bossHp < (bossMaxHp / 2) &&
+       (stage?.bossFile2 || stage?.bossDamagedFile2)){
+      bossVariantPhase = 2;
+      // async swap; no need to await here
+      setBossVariant(stage, 2);
+    }
+
+    if(!midFightBubbleShown && stageIndex >= 0 && stageIndex <= 3){
+      if(stage?.midFightDialogue && bossHp > 0 && bossHp <= (bossMaxHp / 2)){
+        midFightBubbleShown = true;
+        showBossBubble(stage.midFightDialogue, 5000);
+      }
+    }
+
+    updateUI();
+
+    if(stageIndex === 4 && bossHp === 0 && !stage5InvShown){
+      stage5InvShown = true;
+      setStage5InvBanner(true);
+      // the timer & inv sign are controlled by phase>=2 (as requested)
+    }
+
+    if(bossHp === 0){
+      if(stageIndex === 4){
+        stage5SetPhase(2);
+        return;
+      }
+      onBossDefeated();
+    }
+  }
+
+  function startInvuln(){
+    invulnActive = true;
+    invulnUntil = nowMs() + 5000;
+    pushMsg("★ GUTS! 5秒 無敵！", true);
+    updateUI();
+  }
+
+  function pauseStageClock(){
+    if(stagePauseStartMs == null) stagePauseStartMs = nowMs();
+  }
+  function resumeStageClock(){
+    if(stagePauseStartMs != null){
+      stagePausedTotalMs += (nowMs() - stagePauseStartMs);
+      stagePauseStartMs = null;
+    }
+  }
+
+  function damagePlayer(amount, reason){
+    if(amount <= 0) return;
+
+    if(invulnActive){
+      pushMsg(`NO DMG (invuln): ${reason}`, true);
+      return;
+    }
+
+    const scaled = Math.max(1, Math.round(amount * playerDamageMult));
+    const nextNotice = playerHp - scaled;
+
+    if(selectedBuff === "buff3" && !invulnUsed && nextNotice <= 0){
+      invulnUsed = true;
+      playerHp = 1;
+      flashPlayerDamage();
+      startInvuln();
+      return;
+    }
+
+    playerHp = Math.max(0, playerHp - scaled);
+    flashPlayerDamage();
+    pushMsg(`Player takes ${scaled} dmg (${reason})`, true);
+    updateUI();
+
+    if(playerHp === 0) onPlayerDeath();
+  }
+
+  function cleanupContinueListeners(){
+    if(!continueListeners) return;
+    window.removeEventListener("keydown", continueListeners.onKey);
+    overlayChoices.removeEventListener("click", continueListeners.onChoiceClick);
+    continueListeners = null;
+  }
+
+  function showContinuePrompt(){
+    gameState = "continuePrompt";
+    setInputsEnabled(false);
+    showStage5Timer(false);
+    pauseStageClock();
+
+    saveBgmState();
+    setBgm(AUDIO.deathBgm, true);
+
+    continuePromptUntilMs = nowMs() + (CONTINUE_DECISION_SEC * 1000);
+
+    showOverlay(true);
+    overlay.style.cursor = "default";
+    overlayTitle.textContent = "CONTINUE?";
+    overlayDesc.textContent = `残りコンティニュー：${continuesLeft}（HP +3）`;
+    overlayHint.textContent = "10秒以内に選択";
+    overlayChoices.classList.add("show");
+    overlayChoices.innerHTML = `
+      <div class="choiceBtn" data-act="continue">
+        <div class="title">Continue</div>
+        <div class="desc">HPを3にして再開（積み上がった単語を全消去）</div>
+        <div class="note">残り：${continuesLeft}</div>
+      </div>
+      <div class="choiceBtn" data-act="reset">
+        <div class="title">Reset</div>
+        <div class="desc">最初からやり直し（バフ選択から）</div>
+      </div>
+    `;
+
+    const onChoiceClick = (e) => {
+      const btn = e.target.closest(".choiceBtn");
+      if(!btn) return;
+      const act = btn.getAttribute("data-act");
+      if(act === "continue") useContinue();
+      if(act === "reset") hardLoseToReset();
+    };
+
+    const onKey = (e) => {
+      if(e.key === "Enter"){
+        e.preventDefault();
+        useContinue();
+      } else if(e.key === "Escape"){
+        e.preventDefault();
+        hardLoseToReset();
+      }
+    };
+
+    continueListeners = { onChoiceClick, onKey };
+    overlayChoices.addEventListener("click", onChoiceClick);
+    window.addEventListener("keydown", onKey);
+
+    updateContinueCountdownText();
+  }
+
+  function updateContinueCountdownText(){
+    if(gameState !== "continuePrompt") return;
+    const remMs = continuePromptUntilMs - nowMs();
+    const rem = Math.max(0, Math.ceil(remMs / 1000));
+    countdownText.textContent = String(rem);
+    if(rem <= 0){
+      hardLoseToReset();
+    }
+  }
+
+  function useContinue(){
+    if(gameState !== "continuePrompt") return;
+    if(continuesLeft <= 0){
+      hardLoseNoContinues();
+      return;
+    }
+
+    continuesLeft -= 1;
+    continuesUsedThisRun += 1;
+
+    cleanupContinueListeners();
+    showOverlay(false);
+
+    resetField();
+
+    playerHp = Math.min(playerMaxHp, 3);
+    overflowAcc = 0;
+    overflow = false;
+
+    resumeStageClock();
+    restoreBgmState();
+
+    pushMsg(`▶ CONTINUE! HP=${playerHp} / 残り${continuesLeft} / Penalty×${scorePenaltyMultiplier().toFixed(2)}`, true);
+
+    gameState = "playing";
+    setInputsEnabled(true);
+    updateUI();
+  }
+
+  function hardLoseNoContinues(){
+    cleanupContinueListeners();
+    gameState = "gameover";
+    setInputsEnabled(false);
+    hideBossBubble();
+    showStage5Timer(false);
+    pauseStageClock();
+
+    setBgm(AUDIO.deathBgm, true);
+
+    showOverlay(true);
+    overlay.style.cursor = "pointer";
+    setOverlayText("GAME OVER", "コンティニュー切れ。Resetで最初から（バフ選択から）", "（クリックでもOK）");
+    pushMsg("💀 GAME OVER（コンティニュー切れ）");
+  }
+
+  function hardLoseToReset(){
+    cleanupContinueListeners();
+    resetGame();
+  }
+
+  function onPlayerDeath(){
+    if(gameState !== "playing") return;
+
+    if(continuesLeft > 0){
+      pushMsg("💀 DOWN... コンティニューしますか？", true);
+      showContinuePrompt();
+      return;
+    }
+    hardLoseNoContinues();
+  }
+
+  function showBossDialogue(stage, flowToken){
+    return new Promise((resolve) => {
+      const token = (typeof flowToken === "number") ? flowToken : uiFlowToken;
+      if(!isUiFlow(token)) return resolve(false);
+
+      gameState = "dialogue";
+      setInputsEnabled(false);
+
+      setBgm(stage.dialogueBgmFile, true);
+
+      showOverlay(true);
+      setOverlayText(stage.bossName, stage.bossDialogue || "……", "▶ Enter または クリックで進む");
+      countdownText.textContent = "";
+
+      let done = false;
+      const finish = (ok) => {
+        if(done) return;
+        done = true;
+        removeCancel();
+        cleanup();
+        try{ showOverlay(false); }catch(_){/* ignore */}
+        resolve(!!ok);
+      };
+
+      const proceed = () => finish(true);
+      const onKey = (e) => { if(e.key === "Enter"){ e.preventDefault(); proceed(); } };
+      const onClick = () => proceed();
+
+      const cleanup = () => {
+        window.removeEventListener("keydown", onKey);
+        overlay.removeEventListener("click", onClick);
+      };
+
+      const removeCancel = addUiFlowCleanup(() => finish(false));
+
+      window.addEventListener("keydown", onKey);
+      overlay.addEventListener("click", onClick);
+    });
+  }
+
+  async function countdown(seconds, flowToken){
+    const token = (typeof flowToken === "number") ? flowToken : uiFlowToken;
+    if(!isUiFlow(token)) return false;
+
+    gameState = "countdown";
+    setInputsEnabled(false);
+
+    showOverlay(true);
+    setOverlayText("READY?", "カウントダウン後に開始", "");
+    for(let s=seconds; s>=1; s--){
+      if(!isUiFlow(token) || gameState !== "countdown") return false;
+      countdownText.textContent = String(s);
+      await sleep(650);
+    }
+    if(!isUiFlow(token) || gameState !== "countdown") return false;
+    countdownText.textContent = "GO!";
+    await sleep(420);
+    if(!isUiFlow(token) || gameState !== "countdown") return false;
+    showOverlay(false);
+    return true;
+  }
+
+  function showStageClearScreen(stage){
+    return new Promise((resolve) => {
+      gameState = "stageclear";
+      setInputsEnabled(false);
+
+      const stageClearBgm = (currentMode === "extra") ? AUDIO.extraVictoryBgm : AUDIO.victoryBgm;
+      setBgm(stageClearBgm, true);
+
+      showOverlay(true);
+      setOverlayTitleStageClear(stage.stageName);
+      overlayDesc.textContent = `${stage.stageName} クリア！`;
+      overlayHint.textContent = "▶ クリック/Enter で次へ（自動でも進みます）";
+      countdownText.textContent = "";
+      overlayChoices.classList.remove("show");
+      overlayChoices.innerHTML = "";
+
+      let allowSkip = false;
+      const minShowT = setTimeout(() => { allowSkip = true; }, 450);
+
+      let done = false;
+      const finish = () => {
+        if(done) return;
+        done = true;
+        cleanup();
+        showOverlay(false);
+        resolve();
+      };
+
+      const autoT = setTimeout(() => { allowSkip = true; finish(); }, 2200);
+
+      const onKey = (e) => {
+        if(e.key === "Enter"){
+          e.preventDefault();
+          if(!allowSkip) return;
+          clearTimeout(autoT);
+          finish();
+        }
+      };
+      const onClick = () => {
+        if(!allowSkip) return;
+        clearTimeout(autoT);
+        finish();
+      };
+
+      const cleanup = () => {
+        clearTimeout(minShowT);
+        window.removeEventListener("keydown", onKey);
+        overlay.removeEventListener("click", onClick);
+      };
+
+      window.addEventListener("keydown", onKey);
+      overlay.addEventListener("click", onClick);
+    });
+  }
+
+  async function startStage(idx){
+    const flow = cancelUiFlow();
+    // Failsafe: clamp stage index to available stages (prevents undefined stage crashes)
+    const maxIdx = Math.max(0, ((STAGES && STAGES.length) ? STAGES.length : 1) - 1);
+    idx = Math.max(0, Math.min(maxIdx, Math.trunc(Number(idx) || 0)));
+    stageIndex = idx;
+    resetField();
+    hideBossBubble();
+
+    spawnAccMs = 0;
+    spawnCountThisStage = 0;
+    midFightBubbleShown = false;
+
+    showStage5Timer(false);
+    setStage5InvBanner(false);
+    stage5InvShown = false;
+
+    const stage = STAGES[idx];
+
+    stagePlayStartMs = 0;
+    stagePausedTotalMs = 0;
+    stagePauseStartMs = null;
+
+    if(idx === 4){
+      stage5Phase = 1;
+      stage5EndedHandled = false;
+      stage5Phase2At = null;
+      stage5Phase3At = null;
+      showStage5Timer(false);
+    }
+
+    bossMaxHp = stage.bossMaxHp;
+    bossHp = stage.bossMaxHp;
+    bossVariantPhase = 1;
+    baseHitDamage = stage.hitDamage;
+
+    await setStageArt(stage);
+    if(!isUiFlow(flow)) return;
+
+    updateUI();
+
+    msgBox.innerHTML = "";
+    pushMsg(`${stage.stageName} 開始！`);
+    pushMsg(`Boss: ${stage.bossName}`, true);
+    pushMsg(`Buff: ${buffLabel()}`, true);
+    pushMsg(`Continues: ${continuesLeft}/${MAX_CONTINUES}`, true);
+
+    const okDialogue = await showBossDialogue(stage, flow);
+    if(!okDialogue || !isUiFlow(flow)) return;
+
+    const okCountdown = await countdown(3, flow);
+    if(!okCountdown || !isUiFlow(flow)) return;
+
+    gameState = "playing";
+    setInputsEnabled(true);
+
+    stagePlayStartMs = nowMs();
+
+    // Extra Stage 4: always reset + enter Phase 1 right after the countdown
+    if(isExtraStage4()){
+      ex4Phase = 0;
+      ex4SpawnEnabled = false;
+      ex4ClearShuffleState();
+      ex4ShowFakeDeath(false);
+      showEx4Timer(true);
+      ex4HandlePhaseEnter(1);
+    }else{
+      showEx4Timer(false);
+      ex4Phase = 0;
+      ex4SpawnEnabled = false;
+      ex4ClearShuffleState();
+      ex4ShowFakeDeath(false);
+    }
+
+    startEx2Mechanic();
+    stagePausedTotalMs = 0;
+    stagePauseStartMs = null;
+
+    spawnAccMs = 0;
+
+    setBgm(stage.playBgmFile, stage.playBgmLoop !== false);
+  }
+
+  async function startGame(){
+    cleanupContinueListeners();
+    resetField();
+    hideBossBubble();
+    showStage5Timer(false);
+    setStage5InvBanner(false);
+    stage5InvShown = false;
+
+    stageIndex = 0;
+    mistakes = 0;
+
+    continuesLeft = MAX_CONTINUES;
+    resetRunScoring();
+
+    // Buffs are Normal-only
+    if(currentMode === "normal"){
+      if(!selectedBuff){
+        await showBuffSelect();
+      }
+    }else{
+      resetBuffState();
+    }
+
+    playerMaxHp = BASE_PLAYER_MAX_HP;
+    playerHp = playerMaxHp;
+
+    invulnActive = false;
+    invulnUntil = 0;
+
+    showOverlay(false);
+    await startStage(0);
+  }
+
+  // ---- Global jump to the *first launch* intro screen (LOAD → START) ----
+  // Used by the memory wipe cheat and can be safely called from anywhere.
+  function hardResetCoreToIdle(){
+    cleanupContinueListeners();
+
+    setMode("normal");
+    normalCleared = loadNormalCleared();
+
+    // Restart resets score + penalty
+    resetAllRunScoring();
+
+    gameState = "idle";
+    resetField();
+    hideBossBubble();
+    showStage5Timer(false);
+    setStage5InvBanner(false);
+    stage5InvShown = false;
+
+    spawnAccMs = 0;
+    spawnCountThisStage = 0;
+
+    midFightBubbleShown = false;
+
+    resetBuffState();
+
+    playerMaxHp = BASE_PLAYER_MAX_HP;
+    playerHp = playerMaxHp;
+    mistakes = 0;
+    stageIndex = 0;
+    bossHp = 0;
+    bossMaxHp = 0;
+    bossVariantPhase = 1;
+
+    continuesLeft = MAX_CONTINUES;
+    continuePromptUntilMs = 0;
+
+    stagePlayStartMs = 0;
+    stagePausedTotalMs = 0;
+    stagePauseStartMs = null;
+
+    stage5Phase = 1;
+    stage5EndedHandled = false;
+    stage5Phase2At = null;
+    stage5Phase3At = null;
+
+    stopBgm();
+    try{ setStageArt(STAGES[0]); }catch(_){/* ignore */}
+
+    // Hide the in-game overlay (mode select, dialogue, etc.) so the intro can be seen.
+    showOverlay(false);
+    try{
+      overlayChoices.classList.remove("show");
+      overlayChoices.innerHTML = "";
+    }catch(_){/* ignore */}
+
+    setInputsEnabled(false);
+    updateUI();
+  }
+
+  function goToFirstLaunchScreen(noteText){
+    hardResetCoreToIdle();
+
+    // Clear message log (optional)
+    try{ msgBox.innerHTML = ""; }catch(_){/* ignore */}
+    pushMsg("START MENU");
+    pushMsg("LOAD → START", true);
+
+    // Force-show the intro overlay even if it has already been shown once.
+    showIntroStartScreen(true);
+
+    // Show a note to confirm the wipe happened.
+    try{
+      if(noteText) introNote.textContent = noteText;
+    }catch(_){/* ignore */}
+  }
+
+
+  function resetGame(){
+    cleanupContinueListeners();
+
+    // EX4 Phase 4: completely block reset/run (fake death lockout)
+    if(gameState === "playing" && isExtraStage4() && ex4Phase === 4){
+      ex4ShowFakeDeath(true);
+      overlayDesc.textContent = "HAHAHAHAHAHA";
+      ex4PlayResetScare();
+      return;
+    }
+
+    // Cancel any in-progress async UI flow (countdown/dialogue/etc.) so it can’t resume after reset.
+    cancelUiFlow();
+
+    // Helper: wipe state back to a clean idle baseline (no screen shown yet)
+    function hardResetCore(){
+      setMode("normal");
+      normalCleared = loadNormalCleared();
+
+      // Restart resets score + penalty
+      resetAllRunScoring();
+
+      gameState = "idle";
+      resetField();
+      hideBossBubble();
+      showStage5Timer(false);
+      setStage5InvBanner(false);
+      stage5InvShown = false;
+
+      spawnAccMs = 0;
+      spawnCountThisStage = 0;
+
+      midFightBubbleShown = false;
+
+      resetBuffState();
+
+      playerMaxHp = BASE_PLAYER_MAX_HP;
+      playerHp = playerMaxHp;
+      mistakes = 0;
+      stageIndex = 0;
+      bossHp = 0;
+      bossMaxHp = 0;
+      bossVariantPhase = 1;
+
+      continuesLeft = MAX_CONTINUES;
+      continuePromptUntilMs = 0;
+
+      stagePlayStartMs = 0;
+      stagePausedTotalMs = 0;
+      stagePauseStartMs = null;
+
+      stage5Phase = 1;
+      stage5EndedHandled = false;
+      stage5Phase2At = null;
+      stage5Phase3At = null;
+
+      stopBgm();
+      setStageArt(STAGES[0]);
+
+      setInputsEnabled(false);
+      updateUI();
+    }
+
+    function goToModeSelect(){
+      hardResetCore();
+
+      msgBox.innerHTML = "";
+      pushMsg("MODE SELECT");
+      pushMsg("Start → モード選択 → バフ選択 → ステージ開始", true);
+      pushMsg(normalCleared ? "Extra Mode: UNLOCKED" : "Extra Mode: LOCKED（Normal クリアで解放）", true);
+
+      showModeSelectScreen();
+    }
+
+    function goToStartMenuTitle(){
+      hardResetCore();
+
+      // Ensure the in-game overlay is hidden; the title screen will cover everything.
+      showOverlay(false);
+
+      msgBox.innerHTML = "";
+      pushMsg("START MENU");
+      pushMsg("LOAD → START", true);
+
+      // Show the same start menu you see on first launch (force re-show).
+      showIntroStartScreen(true);
+    }
+
+    // Victory screen Reset behavior:
+    // - ONLY on the player's FIRST ever clear of Stage 5 (Normal): send them back to the START/TITLE menu once.
+    // - Otherwise: quick restart straight into the game flow (buff select -> Stage 1).
+    if(gameState === "victory"){
+      if(victoryResetToStartMenuOnce){
+        victoryResetToStartMenuOnce = false; // consume
+        goToStartMenuTitle();
+        return;
+      }else{
+        victoryResetToStartMenuOnce = false;
+        setMode("normal");
+        startGame();
+        return;
+      }
+    }
+
+    // Default reset path: back to MODE SELECT
+    goToModeSelect();
+  }
+
+  function onBossDefeated(){
+    if(gameState !== "playing") return;
+
+    setInputsEnabled(false);
+    hideBossBubble();
+    pushMsg("✅ Boss defeated!");
+
+    (async () => {
+      const clearedStage = STAGES[stageIndex];
+      const isFinal = (stageIndex === STAGES.length - 1);
+
+      await showStageClearScreen(clearedStage);
+
+      if(isFinal){
+        onVictory();
+      }else{
+        stageIndex++;
+        await startStage(stageIndex);
+      }
+    })();
+  }
+
+  function onVictory(){
+  cleanupContinueListeners();
+  gameState = "victory";
+  setInputsEnabled(false);
+  hideBossBubble();
+  showStage5Timer(false);
+
+  // Track whether this was the player's FIRST ever clear of Stage 5 (Normal).
+  // We will use this once: if they hit Reset from the victory screen, send them back to the start menu.
+  victoryResetToStartMenuOnce = (currentMode === "normal" && !normalCleared);
+
+  // If Normal mode was cleared, unlock Extra permanently
+  if(currentMode === "normal" && !normalCleared){
+    normalCleared = true;
+    saveNormalCleared();
+    pushMsg("🔓 EXTRA MODE unlocked!（Normal クリア）", true);
+  }
+
+  const victoryBgmFile = (currentMode === "extra") ? AUDIO.extraVictoryBgm : AUDIO.victoryBgm;
+  setBgm(victoryBgmFile, true);
+
+  const clearedCount = STAGES.length;
+  const desc = (currentMode === "extra")
+    ? `${clearedCount}ステージクリア！（Extra）Resetで再スタート`
+    : (victoryResetToStartMenuOnce
+        ? `${clearedCount}ステージクリア！（Normal）Resetでスタート画面へ戻る / Extra 解放！`
+        : `${clearedCount}ステージクリア！（Normal）Resetで再スタート${normalCleared ? " / Extra 解放！" : ""}`);
+
+  showOverlay(true);
+  setOverlayText("VICTORY!", desc, "Reset で再スタート");
+  pushMsg("🏆 VICTORY!");
+}
+
+  async function cheatSkipToStage5(){
+    if(currentMode !== "normal" || STAGES.length < 5){
+      pushMsg("CHEAT: Normal Mode のみ対応", true);
+      return;
+    }
+    if(!selectedBuff){
+      pushMsg("CHEAT: バフが未選択 → 先にバフを選んでね", true);
+      return;
+    }
+    if(stageIndex === 4){
+      pushMsg("CHEAT: すでにStage 5です", true);
+      return;
+    }
+
+    pushMsg("CHEAT: Stage 5へスキップ！", true);
+
+    resetField();
+    hideBossBubble();
+    showStage5Timer(false);
+    setStage5InvBanner(false);
+    stage5InvShown = false;
+    showOverlay(false);
+
+    playerHp = clamp(playerHp, 1, playerMaxHp);
+    updateUI();
+
+    stageIndex = 4;
+    await startStage(4);
+  }
+
+  function submitAnswer(){
+    if(gameState !== "playing") return;
+
+    const raw = answerInput.value.trim();
+    answerInput.value = "";
+
+    const rawLower = raw.toLowerCase();
+    if(rawLower === DEBUG_MODE_CODE){
+      debugMode = true;
+      saveDebugMode(true);
+      pushMsg("🛠 DEBUG MODE ON", true);
+      showDebugStagePicker();
+      return;
+    }
+
+
+    // Cheat: wipe all saved memory (unlock + hi-scores + debug flags)
+    if(rawLower === CHEAT_MEMORY_WIPE){
+      wipeGameMemory();
+      pushMsg("🧹 MEMORY WIPED (bossTyping_*)", true);
+
+      // Return to the *very first launch* intro screen (LOAD → START).
+      // NOTE: This must be a top-level helper (not inside resetGame), so cheats can call it from anywhere.
+      goToFirstLaunchScreen("🧹 セーブデータを削除しました (MEMORY WIPED)");
+      return;
+    }
+
+    if(raw === CHEAT_SKIP_STAGE5){
+      cheatSkipToStage5();
+      return;
+    }
+
+    const ok = findMatchAndClear(raw);
+    if(!ok){
+      mistakes++;
+      pushMsg(`MISS: ${raw || "(blank)"}`);
+      damagePlayer(1, "input miss");
+      updateUI();
+    }
+
+    answerInput.focus();
+  }
+
+  function tick(ts){
+    let dt = 0;
+    if(lastTs){
+      const rawDt = (ts - lastTs) / 1000;
+      const MAX_DT = 0.2;
+      dt = Math.min(rawDt, MAX_DT);
+      const lost = rawDt - dt;
+      if(lost > 0 && gameState === "playing" && stagePlayStartMs){
+        // Keep stage timers in sync with simulation when frames hitch.
+        stagePausedTotalMs += lost * 1000;
+      }
+    }
+    lastTs = ts;
+
+    if(invulnActive && nowMs() >= invulnUntil){
+      invulnActive = false;
+      pushMsg("無敵終了", true);
+      updateUIThrottled();
+    }
+
+    if(gameState === "continuePrompt"){
+      updateContinueCountdownText();
+      updateUIThrottled();
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    if(gameState === "playing"){
+      const stage = STAGES[stageIndex];
+      const elapsed = stageElapsedSec();
+      ex4HandlePhaseTriggers(elapsed);
+
+      spawnAccMs += dt * 1000;
+      let spawnMs = stage.spawnEveryMs;
+      if(stageIndex === 4){
+        spawnMs = stage5CurrentSpawnMs(elapsed);
+      }
+
+      // EX Stage 4: Phase-based spawn rate adjustment
+      // Phases 2–3: 55% of original spawn rate (=> longer interval)
+      // Phase 5: 2x 10% slower than phases 2–3 (i.e., 44.55% of original)
+      const isEx4 = isExtraStage4();
+      const ex4Adj = isEx4 && (ex4Phase === 2 || ex4Phase === 3 || ex4Phase === 5);
+      if(isEx4 && (ex4Phase === 2 || ex4Phase === 3)){
+        spawnMs = Math.round(spawnMs / 0.55);
+      }else if(isEx4 && ex4Phase === 5){
+        spawnMs = Math.round(spawnMs / 0.55 / 0.9 / 0.9);
+      }
+
+
+      // EX Stage 3: After boss HP drops below half, increase spawn rate by 15% (shorter interval)
+      if(isExtraStage3() && (bossHp < (bossMaxHp / 2))){
+        spawnMs = Math.max(250, Math.round(spawnMs / 1.15));
+      }
+      let loops = 0;
+      while(spawnAccMs >= spawnMs && loops < 6){
+        spawnWord();
+        spawnAccMs -= spawnMs;
+        loops++;
+      }
+
+      const h = laneHeight();
+      let fallSpeed = (stageIndex === 4)
+        ? stage5CurrentFallSpeed(elapsed)
+        : stage.fallSpeedPxPerSec;
+
+      // EX Stage 4: Phase 2/3/5 fall speed adjustment (+10% of original)
+      if(ex4Adj){
+        fallSpeed *= 1.10;
+      }
+
+      // PERF: Avoid repeated .filter() inside the per-word loop.
+      const words = wordsOnField;
+      let landedCount = 0;
+      for(let i=0;i<words.length;i++){
+        if(words[i].state === "landed") landedCount++;
+      }
+
+      let needsRestack = restackDirty;
+      restackDirty = false;
+
+      for(let i=0;i<words.length;i++){
+        const w = words[i];
+        if(w.state !== "falling") continue;
+
+        w.y += fallSpeed * (w.fallMult || 1) * dt;
+
+        const baseCount = Number.isFinite(w.spawnBaseCount) ? w.spawnBaseCount : landedCount;
+        const gIdx = (w.groupIndex || 0);
+        const targetY = (w.ex3Ghost ? (h - 30) : (h - 30 * (baseCount + gIdx + 1)));
+
+        if(w.y >= targetY){
+          w.y = targetY;
+          w.state = "landed";
+          w.el.classList.add("landed");
+          // Extra Stage 1: keep EN obscured after landing (no reveal)
+          landedCount++;
+          needsRestack = true;
+        }
+
+        setWordY(w.el, w.y);
+      }
+
+      if(needsRestack) restackLanded();
+
+      overflow = landedCount >= laneCapacity();
+      if(overflow){
+        overflowAcc += dt;
+        if(overflowAcc >= 1){
+          const ticks = Math.floor(overflowAcc);
+          overflowAcc -= ticks;
+          damagePlayer(ticks, "overflow");
+        }
+      }else{
+        overflowAcc = 0;
+      }
+
+      handleStage5PhaseTriggers();
+      updateStage5Timer();
+      updateEx2Mechanic();
+      updateEx4Mechanic();
+      updateUIThrottled();
+    } else {
+      updateStage5Timer();
+      updateEx2Mechanic();
+      updateUIThrottled();
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  startCmd.addEventListener("click", () => {
+    if(["playing","countdown","dialogue","stageclear","buffselect","continuePrompt","modeselect"].includes(gameState)) return;
+    try{ tryPlayBgmFromGesture(); }catch(_){/* ignore */}
+    showModeSelectScreen();
+  });
+  resetCmd.addEventListener("click", () => {
+    if(gameState === "playing" && isExtraStage4() && ex4Phase === 4){
+      // Block reset during the fake death phase
+      ex4ShowFakeDeath(true);
+      overlayDesc.textContent = "HAHAHAHAHAHA";
+      ex4PlayResetScare();
+      return;
+    }
+    resetGame();
+  });
+  runCmd.addEventListener("click", () => {
+    if(gameState === "playing" && isExtraStage4() && ex4Phase === 4){
+      ex4ShowFakeDeath(true);
+      overlayDesc.textContent = "HAHAHAHAHAHA";
+      ex4PlayResetScare();
+      return;
+    }
+    resetGame();
+  });
+
+  answerForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitAnswer();
+  });
+
+  bgmVol.addEventListener("input", () => {
+    const v = Number(bgmVol.value) / 100;
+    isMuted = false;
+    try{ bgm.muted = false; }catch(_){/* ignore */}
+    bgmMuteBtn.textContent = "MUTE";
+    setBgmVolume(v);
+    // Slider movement is a user gesture on most browsers: retry play.
+    tryPlayBgm();
+  });
+  bgmMuteBtn.addEventListener("click", toggleMute);
+
+  document.documentElement.style.setProperty("--wordH", String(30));
+  initSfxPool();
+  setBgmVolume(0.35);
+  resetGame();
+  showIntroStartScreen();
+
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
